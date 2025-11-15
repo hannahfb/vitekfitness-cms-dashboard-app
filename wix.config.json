@@ -1,0 +1,5 @@
+{
+  "$schema": "https://dev.wix.com/wix-cli/schemas/wix-config.json",
+  "appId": "5d44bc93-87ed-4ca2-abb6-f5c631797743",
+  "projectId": "content-manager-dashboard"
+}

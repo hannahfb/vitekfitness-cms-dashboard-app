@@ -1,0 +1,5 @@
+{
+  "$schema": "https://dev.wix.com/wix-cli/schemas/dashboard-page.json",
+  "id": "1c8020d6-072d-4669-825f-93e5f70a3db7",
+  "title": "Content Manager Dashboard"
+}
