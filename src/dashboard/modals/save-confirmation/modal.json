@@ -1,0 +1,7 @@
+{
+  "$schema": "https://dev.wix.com/wix-cli/schemas/dashboard-modal.json",
+  "id": "a8f952c2-c46a-4f6e-b129-4a4ae98b8537",
+  "title": "Save Confirmation",
+  "width": 550,
+  "height": 600
+}

@@ -21,190 +21,136 @@ import {
 import "@wix/design-system/styles.global.css";
 import * as Icons from "@wix/wix-ui-icons-common";
 import { items } from "@wix/data";
-import { TextItem, PackageItem } from "../../types";
+import { TextItem, PackageItem, FAQItem } from "../../types";
+import PackagesEditor from "../../components/PackagesEditor";
+import TextContentEditor from "../../components/TextContentEditor";
+import LegalEditor from "../../components/LegalEditor";
+import FAQEditor from "../../components/FAQEditor";
+
+const TabItems: { id: number; title: string }[] = [
+  { id: 1, title: "Home" },
+  { id: 2, title: "About me" },
+  { id: 3, title: "Pricing" },
+  { id: 4, title: "Legal" },
+  { id: 5, title: "FAQ " },
+];
 
 const Index: FC = () => {
-  const TabItems = [
-    { id: 1, title: "Home" },
-    { id: 2, title: "About me" },
-    { id: 3, title: "Pricing" },
-  ];
-
-  const [activeTabId, setActiveTabId] = useState(1);
+  const [activeTabId, setActiveTabId] = useState<number>(1);
   const [textData, setTextData] = useState<TextItem[]>([]);
   const [packagesData, setPackagesData] = useState<PackageItem[]>([]);
-
-  const [sectionOptions, setSectionOptions] = useState([]);
-  const [subsectionOptions, setSubsectionOptions] = useState([]);
-  const [selectedSection, setSelectedSection] = useState(null);
-  const [selectedSubsection, setSelectedSubsection] = useState<{
-    id: String;
-    value: string;
-  } | null>(null);
-
-  const [content, setContent] = useState({
-    id: "",
-    title: "",
-    type: "",
-    subtype: "",
-    content: "",
-  });
-  const [contentHeader, setContentHeader] = useState("Content");
-  const [contentTitle, setContentTitle] = useState("");
+  const [faqData, setFaqData] = useState<FAQItem[]>([]);
 
   useEffect(() => {
+    let isMounted = true;
+
     const getTabData = async () => {
-      switch (activeTabId) {
-        case 1:
-        case 2: {
-          const data = await fetchCollection("text", mapText);
-          const pages = { 1: "Home", 2: "About me" };
+      try {
+        if (activeTabId === 1 || activeTabId === 2 || activeTabId === 4) {
+          const data: TextItem[] = await fetchCollection<any, TextItem>(
+            "text",
+            mapText
+          );
+          const pages = { 1: "Home", 2: "About me", 4: "Legal" };
           const pageData = data.filter(
             (item) => item.page === pages[activeTabId]
           );
-          setTextData(pageData);
-
-          const sections = getSectionsOptions(pageData, "section");
-          setSectionOptions(sections);
-
-          if (sections.length) {
-            const firstSection = sections[0].value;
-            handleSelectSection({ value: firstSection });
-          }
-          break;
+          if (isMounted) setTextData(pageData);
+        } else if (activeTabId === 3) {
+          const data: PackageItem[] = await fetchCollection<any, PackageItem>(
+            "packages",
+            mapPackages
+          );
+          if (isMounted) setPackagesData(data);
+        } else if (activeTabId === 5) {
+          const data: FAQItem[] = await fetchCollection<any, FAQItem>(
+            "faq",
+            mapFAQ
+          );
+          if (isMounted) setFaqData(data);
         }
-        case 3: {
-          const data = await fetchCollection("packages", mapPackages);
-          setPackagesData(data);
-          break;
-        }
-        default:
-          break;
+      } catch (err) {
+        console.error("Error fetching tab data:", err);
       }
     };
-
     getTabData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [activeTabId]);
 
   // QUERY FUNCTION FOR COLLECTIONS
-  async function fetchCollection(collectionName, mapFn) {
+  async function fetchCollection<RawItem, MappedItem>(
+    collectionName: string,
+    mapFn: (item: RawItem) => MappedItem
+  ): Promise<MappedItem[]> {
     const results = await items.query(collectionName).find();
 
     if (results.items.length > 0) {
-      return results.items.map(mapFn);
+      return results.items.map((item) => mapFn(item as RawItem));
     } else {
       console.warn(`No items found in ${collectionName}`, results);
       return [];
     }
   }
 
-  // Text Collection
+  // TEXT COLLECTION
   const mapText = (item: any): TextItem => ({
     id: item._id,
     title: item.title,
-    section: item.section,
     page: item.page,
-    type: item.type,
+    section: item.section,
+    header: item.header,
     subtype: item.subtype,
     content: item.content,
+    cardOrder: item.cardOrder,
+    primaryButton: item.primaryButton,
+    contentTextColour: item.ContentTextColour,
+    image: item.image,
   });
 
-  // Packages & Pricing Collection
+  // PACKAGES & PRICING COLLECTION
   const mapPackages = (item: any): PackageItem => ({
     id: item._id,
     type: item.packageType,
     name: item.title,
     totalPrice: item.totalPrice,
     sessionPrice: item.sessionPrice,
+    sessionQty: item.sessionsQty,
+    validity: item.validityMonths,
+    description: item.description,
   });
 
-  // Section & Subsection options
-  function getSectionsOptions(data, key) {
-    const uniqueSections = Array.from(new Set(data.map((item) => item[key])));
-    return uniqueSections.map((value, index) => ({
-      id: index + 1,
-      value,
-    }));
-  }
-  // function getSubsectionOptions(data, section) {
-  //   const filteredData = data.filter((item) => item.section === section);
-  //   return filteredData.map((item) => ({
-  //     id: item._id,
-  //     value: item.title,
-  //   }));
-  // }
+  // FAQ COLLECTION
+  const mapFAQ = (item: any): FAQItem => ({
+    id: item._id,
+    question: item.question,
+    answer: item.answer,
+    topic: item.topic,
+    order: item.order,
+  });
 
-  // Changes & Events
-  const handleSelectSection = (option) => {
-    setSelectedSection(option.value);
-    setSelectedSubsection(null);
-
-    const filteredSubsections = textData.filter(
-      (item) => item.section === option.value
-    );
-    const options = filteredSubsections.map((item) => ({
-      id: item.id,
-      value: item.title,
-    }));
-
-    setSubsectionOptions(options);
+  // TAB REFRESH
+  const refreshTabData = async () => {
+    try {
+      if (activeTabId === 3) {
+        const data: PackageItem[] = await fetchCollection<any, PackageItem>(
+          "packages",
+          mapPackages
+        );
+        setPackagesData(data);
+      } else if (activeTabId === 5) {
+        const data: FAQItem[] = await fetchCollection<any, FAQItem>(
+          "faq",
+          mapFAQ
+        );
+        setFaqData(data);
+      }
+    } catch (error) {
+      console.error("Error refreshing data", error);
+    }
   };
-
-  const handleSelectSubsection = (option) => {
-    setSelectedSubsection(option);
-
-    const selectedItem = textData.find((item) => item.id === option.id);
-    setContent({
-      id: selectedItem.id,
-      title: selectedItem.title,
-      type: selectedItem.type,
-      subtype: selectedItem.subtype,
-      content: selectedItem.content,
-    });
-  };
-
-  const handleClearSubsection = () => {
-    setSelectedSubsection(null);
-    clearContent();
-  };
-
-  function clearContent() {
-    setContentHeader("Content");
-    setContentTitle("");
-  }
-
-  // async function insertItem() {
-  //   const toInsert = {
-  //     title: "New",
-  //     packageType: "Ultimate 75",
-  //     totalPrice: 10,
-  //     sessionPrice: 5,
-  //   };
-  //   const inserted = await items.insert("packages", toInsert);
-  //   console.log(inserted);
-  // }
-
-  // async function updateItem() {
-  //   const toUpdate = {
-  //     _id: "1e8f246c-ace0-4fda-9046-9177484d65a7",
-  //     title: "Updated",
-  //   };
-
-  //   const updatedItem = await items.update("packages", toUpdate);
-  //   console.log(updatedItem);
-  // }
-
-  // async function patch() {
-  //   const updatedItem = await items
-  //     .patch("packages", "f10a9912-842a-4280-8604-e9db1e4a21e7")
-  //     .setField("title", "Updated")
-  //     .run();
-  // }
-
-  // async function removeItem() {
-  //   const result = await items.remove("packages", "f10a9912-842a-4280-8604-e9db1e4a21e7");
-  //   console.log(result); // See removed item below
-  // }
 
   return (
     <WixDesignSystemProvider features={{ newColorsBranding: true }}>
@@ -212,102 +158,33 @@ const Index: FC = () => {
         <Page.Header
           title="Website Content Management"
           subtitle="Select a webpage to update content for below."
-          actionsBar={
-            <Button
-              onClick={() => {
-                dashboard.showToast({
-                  message: "Your first toast message!",
-                });
-              }}
-              prefixIcon={<Icons.GetStarted />}
-            >
-              Show a toast
-            </Button>
-          }
         />
         <Page.Tail>
           <Tabs
             items={TabItems}
             type="compactSide"
             activeId={activeTabId}
-            onClick={(tab) => setActiveTabId(tab.id)}
+            onClick={(tab) => setActiveTabId(tab.id as number)}
           />
         </Page.Tail>
+
         <Page.Content>
-          <Layout>
-            <Cell span={12}>
-              <Card>
-                <Card.Header title="Page Section"></Card.Header>
-                <Card.Divider />
-                <Card.Content>
-                  <Layout gap="24px">
-                    <Cell span={4}>
-                      <FormField label="Section">
-                        <Dropdown
-                          placeholder="Select"
-                          options={sectionOptions}
-                          value={selectedSection}
-                          onSelect={handleSelectSection}
-                        />
-                      </FormField>
-                    </Cell>
-                    <Cell span={4}>
-                      <FormField label="Subsection">
-                        <AutoComplete
-                          placeholder="Select"
-                          clearButton
-                          options={subsectionOptions}
-                          value={selectedSubsection?.value || ""}
-                          onSelect={handleSelectSubsection}
-                          onClear={handleClearSubsection}
-                        />
-                      </FormField>
-                    </Cell>
-                  </Layout>
-                </Card.Content>
-                <Card.Divider />
-              </Card>
-            </Cell>
-            <Cell span={12}>
-              <Card>
-                <Card.Header title={contentHeader}></Card.Header>
-                <Card.Divider />
-                <Card.Content>
-                  <Layout>
-                    <Cell span={4}>
-                      <FormField label="Name">
-                        <Input value={content.title} />
-                      </FormField>
-                    </Cell>
-                    <Cell span={4}>
-                      <FormField label="Type">
-                        <Input readOnly value={content.type} />
-                      </FormField>
-                    </Cell>
-                    <Cell span={4}>
-                      <FormField label="Subtype">
-                        <Input readOnly value={content.subtype} />
-                      </FormField>
-                    </Cell>
-                    <Cell>
-                      <FormField label="Content">
-                        <RichTextInputArea
-                          key={content.id}
-                          minHeight="120px"
-                          initialValue={content.content}
-                        />
-                      </FormField>
-                    </Cell>
-                    <Box gap="20px">
-                      <Button>Save</Button>
-                      <Button priority="secondary">Cancel</Button>
-                    </Box>
-                  </Layout>
-                </Card.Content>
-                <Card.Divider />
-              </Card>
-            </Cell>
-          </Layout>
+          {(activeTabId === 1 || activeTabId === 2) && (
+            <TextContentEditor key={activeTabId} textData={textData} />
+          )}
+
+          {activeTabId === 3 && (
+            <PackagesEditor
+              packagesData={packagesData}
+              onDataChange={refreshTabData}
+            />
+          )}
+
+          {activeTabId === 4 && <LegalEditor textData={textData} />}
+
+          {activeTabId === 5 && (
+            <FAQEditor faqData={faqData} onDataChange={refreshTabData} />
+          )}
         </Page.Content>
       </Page>
     </WixDesignSystemProvider>

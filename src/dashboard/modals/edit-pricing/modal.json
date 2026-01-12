@@ -1,0 +1,7 @@
+{
+  "$schema": "https://dev.wix.com/wix-cli/schemas/dashboard-modal.json",
+  "id": "8165bb05-e4cc-48cd-bc95-2b36f72a96ef",
+  "title": "edit pricing",
+  "width": 550,
+  "height": 600
+}

@@ -1,0 +1,7 @@
+{
+  "$schema": "https://dev.wix.com/wix-cli/schemas/dashboard-modal.json",
+  "id": "c5153ad5-18b0-4d22-a88c-542405a59b99",
+  "title": "AddFAQ",
+  "width": 550,
+  "height": 600
+}

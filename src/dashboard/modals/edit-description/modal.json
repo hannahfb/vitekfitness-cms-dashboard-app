@@ -1,0 +1,7 @@
+{
+  "$schema": "https://dev.wix.com/wix-cli/schemas/dashboard-modal.json",
+  "id": "bb733afb-b807-4811-9122-04428fb97dd9",
+  "title": "EditDescription",
+  "width": 550,
+  "height": 600
+}

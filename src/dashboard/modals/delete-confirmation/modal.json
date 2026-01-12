@@ -1,0 +1,7 @@
+{
+  "$schema": "https://dev.wix.com/wix-cli/schemas/dashboard-modal.json",
+  "id": "37a73e82-eabd-4e01-96f4-b44aa22723c2",
+  "title": "DeleteConfirmation",
+  "width": 550,
+  "height": 600
+}

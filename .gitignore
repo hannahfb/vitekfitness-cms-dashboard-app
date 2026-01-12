@@ -10,3 +10,4 @@ npm-debug.log*
 # Misc
 .DS_Store
 out
+page(backup).txt
