@@ -1,38 +1,26 @@
-import React, { type FC, useState, useEffect, useMemo } from "react";
+import React, { type FC, useState, useMemo } from "react";
 import {
   Button,
   Card,
   Layout,
   Cell,
   FormField,
-  Dropdown,
   Input,
   RichTextInputArea,
   Box,
-  AutoComplete,
-  Loader,
   Radio,
   Heading,
   Text,
 } from "@wix/design-system";
 import { dashboard } from "@wix/dashboard";
 import "@wix/design-system/styles.global.css";
-import * as Icons from "@wix/wix-ui-icons-common";
-import { items } from "@wix/data";
-import { TextItem } from "../types";
-import { updateItem } from "../utils/content";
+import { TextItem, SaveModalResponse } from "../types";
 
 interface TextContentEditorProps {
   textData: TextItem[];
 }
 
 const LegalEditor: FC<TextContentEditorProps> = ({ textData }) => {
-  const [sectionOptions, setSectionOptions] = useState<
-    { id: string; value: string }[]
-  >([]);
-  const [selectedSection, setSelectedSection] = useState<string | undefined>(
-    undefined
-  );
   const [checkedId, setCheckedId] = useState<number | undefined>(undefined);
   const [content, setContent] = useState({
     id: "",
@@ -46,21 +34,6 @@ const LegalEditor: FC<TextContentEditorProps> = ({ textData }) => {
   const originalItem = useMemo(() => {
     return textData.find((item) => item.id === content.id);
   }, [textData, content.id]);
-
-  useEffect(() => {
-    if (!textData.length) return;
-
-    const uniqueSections = Array.from(
-      new Set(textData.map((item) => item.section))
-    );
-
-    const sectionList = uniqueSections.map((section) => ({
-      id: section,
-      value: section,
-    }));
-
-    setSectionOptions(sectionList);
-  }, [textData]);
 
   // SECTION SELECTORS & CLEARERS
   const handleRadioSelect =
@@ -98,16 +71,6 @@ const LegalEditor: FC<TextContentEditorProps> = ({ textData }) => {
     });
   }
 
-  function handleClearSection() {
-    setContent({
-      id: "",
-      title: "",
-      section: "",
-      header: "",
-      content: "",
-    });
-  }
-
   const handleRevertContent = () => {
     if (originalItem) {
       fillInputDisplay(originalItem);
@@ -122,21 +85,6 @@ const LegalEditor: FC<TextContentEditorProps> = ({ textData }) => {
   ) => {
     setContent((prev) => ({ ...prev, [field]: newContent }));
   };
-
-  async function patch() {
-    try {
-      const updatedItem = await items
-        .patch("text", content.id)
-        .setField("header", content.header)
-        .setField("content", content.content)
-        .run();
-
-      return updatedItem;
-    } catch (error) {
-      console.error("Patch failed: ", error);
-      throw error;
-    }
-  }
 
   // CHECK FIELD FOR VALIDATION OR ERRORS
   const isInputValid = () => {
@@ -166,22 +114,31 @@ const LegalEditor: FC<TextContentEditorProps> = ({ textData }) => {
   const handleSaveTextItem = async () => {
     if (!content) return;
 
-    const result = await dashboard.openModal({
-      modalId: "a8f952c2-c46a-4f6e-b129-4a4ae98b8537",
-      params: {
-        id: content.id,
-        header: encodeURIComponent(content.header || ""),
-        content: encodeURIComponent(content.content || ""),
-      },
-    });
+    try {
+      const result = await dashboard.openModal({
+        modalId: "a8f952c2-c46a-4f6e-b129-4a4ae98b8537",
+        params: {
+          id: content.id,
+          header: encodeURIComponent(content.header || ""),
+          content: encodeURIComponent(content.content || ""),
+        },
+      });
 
-    if ((result?.modalClosed as any)?.saved) {
+      const saveResult = (await result?.modalClosed) as SaveModalResponse | undefined;
+      if (saveResult?.saved) {
+        dashboard.showToast({
+          message: "Your changes were saved",
+          type: "success",
+        });
+      }
+    } catch (error) {
+      console.error("Error saving content:", error);
       dashboard.showToast({
-        message: "Your changes were saved",
-        type: "success",
+        message: "Failed to save changes",
+        type: "error",
       });
     }
-    };
+  };
 
   return (
     <Layout>

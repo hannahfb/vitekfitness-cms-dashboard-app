@@ -1,0 +1,7 @@
+{
+  "$schema": "https://dev.wix.com/wix-cli/schemas/dashboard-modal.json",
+  "id": "73c35a91-c02c-436e-b640-5118da5cc5a2",
+  "title": "UploadImage",
+  "width": 550,
+  "height": 600
+}

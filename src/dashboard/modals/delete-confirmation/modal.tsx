@@ -2,7 +2,6 @@ import React, { type FC, useState, useEffect } from "react";
 import { dashboard } from "@wix/dashboard";
 import { WixDesignSystemProvider } from "@wix/design-system";
 import "@wix/design-system/styles.global.css";
-import { width, height, title } from "./modal.json";
 import SaveConfirmationModal from "../../../components/SaveConfirmation";
 import { items } from "@wix/data";
 
@@ -16,7 +15,7 @@ const Modal: FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [params, setParams] = useState<{
     id: string;
-    question: String;
+    question: string;
   } | null>(null);
 
   useEffect(() => {

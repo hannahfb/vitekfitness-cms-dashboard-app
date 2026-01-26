@@ -10,13 +10,10 @@ import {
   Cell,
   Input,
   NumberInput,
-  Loader,
 } from "@wix/design-system";
 import { items } from "@wix/data";
 import "@wix/design-system/styles.global.css";
-import { width, height, title } from "./modal.json";
-import { PackageItem, PackageRecord } from "../../../types";
-import { updateItem } from "../../../utils/content";
+import { PackageItem } from "../../../types";
 import SaveConfirmationModal from "../../../components/SaveConfirmation";
 
 const Modal: FC = () => {
@@ -75,14 +72,13 @@ const Modal: FC = () => {
     setIsSaving(true);
 
     try {
-      const updatedItem = await items
+      await items
         .patch("packages", id)
         .setField("title", packageData?.name)
         .setField("type", packageData?.type)
         .setField("totalPrice", packageData?.totalPrice)
         .setField("sessionPrice", packageData?.sessionPrice)
         .setField("sessionsQty", packageData?.sessionQty)
-        .setField("validityMonths", packageData?.validity)
         .setField("validityMonths", packageData?.validity)
         .run();
 

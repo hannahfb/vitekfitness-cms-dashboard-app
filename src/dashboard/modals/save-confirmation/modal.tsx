@@ -1,13 +1,7 @@
 import React, { type FC, useState, useEffect } from "react";
 import { dashboard } from "@wix/dashboard";
-import {
-  WixDesignSystemProvider,
-  Text,
-  Box,
-  CustomModalLayout,
-} from "@wix/design-system";
+import { WixDesignSystemProvider } from "@wix/design-system";
 import "@wix/design-system/styles.global.css";
-import { width, height, title } from "./modal.json";
 import SaveConfirmationModal from "../../../components/SaveConfirmation";
 
 import { items } from "@wix/data";
@@ -59,6 +53,10 @@ const Modal: FC = () => {
       dashboard.closeModal({ saved: true });
     } catch (error) {
       console.error("Failed to save item:", error);
+      dashboard.showToast({
+        message: "Failed to save changes",
+        type: "error",
+      });
       setIsSaving(false);
     }
   };

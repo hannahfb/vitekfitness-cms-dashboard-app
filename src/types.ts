@@ -11,7 +11,8 @@ export interface TextItem {
   content: string;
   primaryButton: string;
   contentTextColour: string;
-  image: string;
+  image: string | null;
+  imageAltText: string;
 }
 
 export interface PackageItem {
@@ -23,6 +24,7 @@ export interface PackageItem {
   sessionQty: number;
   validity: number;
   description: string;
+  isDescription?: boolean;
 }
 
 export interface PackageRecord {
@@ -72,4 +74,15 @@ export interface FilterTag {
 export interface ModalResult {
   saved?: boolean;
   deleted?: boolean;
+}
+
+export interface ImageModalResponse {
+  action?: "openMediaManager";
+  saved?: boolean;
+  newImageUrl?: string;
+  altText?: string;
+}
+
+export interface SaveModalResponse {
+  saved?: boolean;
 }

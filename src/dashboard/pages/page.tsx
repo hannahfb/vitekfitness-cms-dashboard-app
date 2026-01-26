@@ -1,25 +1,6 @@
 import React, { type FC, useEffect, useState } from "react";
-import { dashboard } from "@wix/dashboard";
-import {
-  Button,
-  EmptyState,
-  Image,
-  Page,
-  TextButton,
-  WixDesignSystemProvider,
-  Card,
-  Layout,
-  Cell,
-  Tabs,
-  FormField,
-  Dropdown,
-  Input,
-  RichTextInputArea,
-  Box,
-  AutoComplete,
-} from "@wix/design-system";
+import { Page, WixDesignSystemProvider, Tabs } from "@wix/design-system";
 import "@wix/design-system/styles.global.css";
-import * as Icons from "@wix/wix-ui-icons-common";
 import { items } from "@wix/data";
 import { TextItem, PackageItem, FAQItem } from "../../types";
 import PackagesEditor from "../../components/PackagesEditor";
@@ -32,7 +13,7 @@ const TabItems: { id: number; title: string }[] = [
   { id: 2, title: "About me" },
   { id: 3, title: "Pricing" },
   { id: 4, title: "Legal" },
-  { id: 5, title: "FAQ " },
+  { id: 5, title: "FAQ" },
 ];
 
 const Index: FC = () => {
@@ -49,23 +30,23 @@ const Index: FC = () => {
         if (activeTabId === 1 || activeTabId === 2 || activeTabId === 4) {
           const data: TextItem[] = await fetchCollection<any, TextItem>(
             "text",
-            mapText
+            mapText,
           );
           const pages = { 1: "Home", 2: "About me", 4: "Legal" };
           const pageData = data.filter(
-            (item) => item.page === pages[activeTabId]
+            (item) => item.page === pages[activeTabId],
           );
           if (isMounted) setTextData(pageData);
         } else if (activeTabId === 3) {
           const data: PackageItem[] = await fetchCollection<any, PackageItem>(
             "packages",
-            mapPackages
+            mapPackages,
           );
           if (isMounted) setPackagesData(data);
         } else if (activeTabId === 5) {
           const data: FAQItem[] = await fetchCollection<any, FAQItem>(
             "faq",
-            mapFAQ
+            mapFAQ,
           );
           if (isMounted) setFaqData(data);
         }
@@ -83,7 +64,7 @@ const Index: FC = () => {
   // QUERY FUNCTION FOR COLLECTIONS
   async function fetchCollection<RawItem, MappedItem>(
     collectionName: string,
-    mapFn: (item: RawItem) => MappedItem
+    mapFn: (item: RawItem) => MappedItem,
   ): Promise<MappedItem[]> {
     const results = await items.query(collectionName).find();
 
@@ -96,19 +77,22 @@ const Index: FC = () => {
   }
 
   // TEXT COLLECTION
-  const mapText = (item: any): TextItem => ({
-    id: item._id,
-    title: item.title,
-    page: item.page,
-    section: item.section,
-    header: item.header,
-    subtype: item.subtype,
-    content: item.content,
-    cardOrder: item.cardOrder,
-    primaryButton: item.primaryButton,
-    contentTextColour: item.ContentTextColour,
-    image: item.image,
-  });
+  const mapText = (item: any): TextItem => {
+    return {
+      id: item._id,
+      title: item.title,
+      page: item.page,
+      section: item.section,
+      header: item.header,
+      subtype: item.subtype,
+      content: item.content,
+      cardOrder: item.cardOrder,
+      primaryButton: item.primaryButton,
+      contentTextColour: item.ContentTextColour,
+      image: item.image || null,
+      imageAltText: item.imageAltText,
+    };
+  };
 
   // PACKAGES & PRICING COLLECTION
   const mapPackages = (item: any): PackageItem => ({
@@ -120,6 +104,7 @@ const Index: FC = () => {
     sessionQty: item.sessionsQty,
     validity: item.validityMonths,
     description: item.description,
+    isDescription: item.isDescription,
   });
 
   // FAQ COLLECTION
@@ -137,13 +122,13 @@ const Index: FC = () => {
       if (activeTabId === 3) {
         const data: PackageItem[] = await fetchCollection<any, PackageItem>(
           "packages",
-          mapPackages
+          mapPackages,
         );
         setPackagesData(data);
       } else if (activeTabId === 5) {
         const data: FAQItem[] = await fetchCollection<any, FAQItem>(
           "faq",
-          mapFAQ
+          mapFAQ,
         );
         setFaqData(data);
       }

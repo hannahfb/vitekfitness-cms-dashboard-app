@@ -14,7 +14,7 @@ import {
 import "@wix/design-system/styles.global.css";
 import { width, height } from "./modal.json";
 import { items } from "@wix/data";
-import { PackageItem, PackageRecord } from "../../../types";
+import { PackageItem } from "../../../types";
 import SaveConfirmationModal from "../../../components/SaveConfirmation";
 
 // To open your modal, call `openModal` with your modal id.
@@ -85,7 +85,7 @@ const Modal: FC = () => {
     setIsSaving(true);
 
     try {
-      const updatedItem = await items
+      await items
         .patch("packages", id)
         .setField("description", packageData?.description)
         .run();

@@ -2,8 +2,6 @@ import React, { type FC, useState } from "react";
 import { dashboard } from "@wix/dashboard";
 import {
   WixDesignSystemProvider,
-  Text,
-  Box,
   CustomModalLayout,
   RichTextInputArea,
   Layout,
@@ -11,6 +9,7 @@ import {
   FormField,
   InputArea,
   Dropdown,
+  DropdownLayoutValueOption,
 } from "@wix/design-system";
 import "@wix/design-system/styles.global.css";
 import { width, height } from "./modal.json";
@@ -47,8 +46,8 @@ const Modal: FC = () => {
     setAnswer(newAnswer);
   };
 
-  const handleTopicChange = (option: any) => {
-    setSelectedTopic(option.id);
+  const handleTopicChange = (option: DropdownLayoutValueOption) => {
+    setSelectedTopic(option.id as number);
   };
 
   // VALIDATION

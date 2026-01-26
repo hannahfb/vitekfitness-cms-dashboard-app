@@ -75,7 +75,7 @@ const FAQEditor: FC<FAQEditorProps> = ({ faqData, onDataChange }) => {
   const applyFilters = (topic: string, search: string) => {
     let data = [...faqData].sort((a, b) => a.order - b.order);
 
-    if (topic != "All Topics") {
+    if (topic !== "All Topics") {
       data = data.filter((item) => item.topic === topic);
     }
 
@@ -122,7 +122,7 @@ const FAQEditor: FC<FAQEditorProps> = ({ faqData, onDataChange }) => {
   const removeTag = () => {
     setFilter([]);
     setSortedFAQData(faqData);
-    setSelectedTopic(topicOptions[0]);
+    setSelectedTopic(topicOptions[0] ?? { id: 0, value: "All Topics" });
     setSubtoolbarVisible(false);
   };
 
@@ -148,45 +148,134 @@ const FAQEditor: FC<FAQEditorProps> = ({ faqData, onDataChange }) => {
 
   // EDIT, ADD & DELETE FUNCTIONS
   const handleEdit = async (item: FAQItem) => {
-    const result = await dashboard.openModal({
-      modalId: "cad760d8-3d4e-4c37-adee-fddf5f70e9d2",
-      params: {
-        id: item.id,
-      },
-    });
+    try {
+      const result = await dashboard.openModal({
+        modalId: "cad760d8-3d4e-4c37-adee-fddf5f70e9d2",
+        params: {
+          id: item.id,
+        },
+      });
 
-    const modalResult = (await result.modalClosed) as ModalResult;
+      const modalResult = (await result?.modalClosed) as ModalResult;
 
-    if (modalResult?.saved) {
-      await onDataChange();
+      if (modalResult?.saved) {
+        await onDataChange();
+      }
+    } catch (error) {
+      console.error("Error editing FAQ item:", error);
+      dashboard.showToast({
+        message: "Failed to edit FAQ item",
+        type: "error",
+      });
     }
   };
 
   const handleAdd = async () => {
-    const result = await dashboard.openModal(
-      "c5153ad5-18b0-4d22-a88c-542405a59b99"
-    );
+    try {
+      const result = await dashboard.openModal(
+        "c5153ad5-18b0-4d22-a88c-542405a59b99"
+      );
 
-    const modalResult = (await result.modalClosed) as ModalResult;
-    
-    if (modalResult?.saved) {
-      await onDataChange();
+      const modalResult = (await result?.modalClosed) as ModalResult;
+
+      if (modalResult?.saved) {
+        await onDataChange();
+      }
+    } catch (error) {
+      console.error("Error adding FAQ item:", error);
+      dashboard.showToast({
+        message: "Failed to add FAQ item",
+        type: "error",
+      });
     }
   };
 
   const handleDelete = async (item: FAQItem) => {
-    const result = await dashboard.openModal({
-      modalId: "37a73e82-eabd-4e01-96f4-b44aa22723c2",
-      params: {
-        id: item.id,
-        question: encodeURIComponent(item.question),
-      },
-    });
+    try {
+      const result = await dashboard.openModal({
+        modalId: "37a73e82-eabd-4e01-96f4-b44aa22723c2",
+        params: {
+          id: item.id,
+          question: encodeURIComponent(item.question),
+        },
+      });
 
-    const modalResult = (await result.modalClosed) as ModalResult;
+      const modalResult = (await result?.modalClosed) as ModalResult;
 
-    if (modalResult?.deleted) {
-      await onDataChange();
+      if (modalResult?.deleted) {
+        await onDataChange();
+      }
+    } catch (error) {
+      console.error("Error deleting FAQ item:", error);
+      dashboard.showToast({
+        message: "Failed to delete FAQ item",
+        type: "error",
+      });
+    }
+  };
+
+  // REORDERING ROWS (MOVING UP & DOWN)
+  const moveUp = async (item: FAQItem) => {
+    const currentIndex = sortedFAQData.findIndex((faq) => faq.id === item.id);
+
+    if (currentIndex > 0) {
+      const aboveItem = sortedFAQData[currentIndex - 1];
+
+      try {
+        await items
+          .patch("faq", item.id)
+          .setField("order", aboveItem.order)
+          .run();
+        await items
+          .patch("faq", aboveItem.id)
+          .setField("order", item.order)
+          .run();
+
+        await onDataChange();
+
+        dashboard.showToast({
+          message: "Item moved up successfully",
+          type: "success",
+        });
+      } catch (error) {
+        console.error("Error moving item:", error);
+        dashboard.showToast({
+          message: "Failed to move item",
+          type: "error",
+        });
+      }
+    }
+  };
+
+  const moveDown = async (item: FAQItem) => {
+    const currentIndex = sortedFAQData.findIndex((faq) => faq.id === item.id);
+
+    if (currentIndex < sortedFAQData.length - 1) {
+      const belowItem = sortedFAQData[currentIndex + 1];
+
+      try {
+        await items
+          .patch("faq", item.id)
+          .setField("order", belowItem.order)
+          .run();
+        await items
+          .patch("faq", belowItem.id)
+          .setField("order", item.order)
+          .run();
+
+        await onDataChange();
+
+        dashboard.showToast({
+          message: "Item moved down successfully",
+          type: "success",
+        });
+      } catch (error) {
+        console.error("Error moving item:", error);
+        dashboard.showToast({
+          message: "Failed to move item",
+          type: "error",
+        });
+      }
     }
   };
 
@@ -246,23 +335,57 @@ const FAQEditor: FC<FAQEditorProps> = ({ faqData, onDataChange }) => {
     },
     {
       title: "",
-      render: (row: FAQItem) => (
-        <TableActionCell
-          size="small"
-          primaryAction={{
-            text: "Edit",
-            onClick: () => handleEdit(row),
-          }}
-          secondaryActions={[
-            {
-              text: "Delete",
-              icon: <Icons.DeleteSmall />,
-              onClick: () => handleDelete(row),
-            },
-          ]}
-          numOfVisibleSecondaryActions={0}
-        />
-      ),
+      render: (row: FAQItem) => {
+        const currentIndex = sortedFAQData.findIndex(
+          (faq) => faq.id === row.id
+        );
+        const atTop = currentIndex === 0;
+        const atBottom = currentIndex === sortedFAQData.length - 1;
+
+        return (
+          <TableActionCell
+            size="small"
+            primaryAction={{
+              text: "Edit",
+              onClick: () => handleEdit(row),
+            }}
+            secondaryActions={[
+              ...(!atTop
+                ? [
+                    {
+                      text: "Move up",
+                      icon: <Icons.ArrowUp />,
+                      onClick: () => {
+                        moveUp(row);
+                      },
+                    },
+                  ]
+                : []),
+              ...(!atBottom
+                ? [
+                    {
+                      text: "Move down",
+                      icon: <Icons.ArrowDown />,
+                      onClick: () => {
+                        moveDown(row);
+                      },
+                    },
+                  ]
+                : []),
+              {
+                text: "Delete",
+                icon: <Icons.DeleteSmall />,
+                onClick: () => handleDelete(row),
+              },
+            ]}
+            numOfVisibleSecondaryActions={0}
+            popoverMenuProps={{
+              minWidth: 150,
+              placement: 'bottom',
+            }}
+          />
+        );
+      },
       width: "15%",
     },
   ];

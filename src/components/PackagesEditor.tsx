@@ -1,27 +1,22 @@
 import React, { type FC, useState, useEffect } from "react";
 import { dashboard } from "@wix/dashboard";
 import {
-  Button,
   Card,
   Layout,
   Cell,
   FormField,
   Dropdown,
-  Input,
-  RichTextInputArea,
   Box,
-  AutoComplete,
   Table,
   TableActionCell,
   TableToolbar,
-  Page,
   TagList,
   Heading,
   Text,
-  Divider,
   IconButton,
   Tooltip,
   DropdownLayoutValueOption,
+  TableColumn,
 } from "@wix/design-system";
 import "@wix/design-system/styles.global.css";
 import {
@@ -33,8 +28,7 @@ import {
   FilterOption,
   ModalResult,
 } from "../types";
-import { SortDescending, Edit as EditIcon } from "@wix/wix-ui-icons-common";
-import { items } from "@wix/data";
+import { Edit as EditIcon } from "@wix/wix-ui-icons-common";
 
 interface PackagesEditorProps {
   packagesData: PackageItem[];
@@ -49,24 +43,18 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
     ...packagesData,
   ]);
   const [descriptions, setDescriptions] = useState<PackageItem[]>([]);
-  const descriptionIds = [
-    "ea008f34-79d3-4615-8960-27119e38346c", // Quick 40
-    "b813c0a4-6de6-477b-a909-2e6a5b62410b", // Standard 60
-    "93aecbfa-6e40-4967-9560-73f881128170", // Extended 75
-    "c992a468-02d0-458b-b8f4-e8dbc6207703", // Test
-  ];
+  const typeOrder = ["Quick 40", "Standard 60", "Extended 75"];
 
   useEffect(() => {
     setSortedPackData([...packagesData]);
 
-    const filteredDescriptions = packagesData.filter((item) =>
-      descriptionIds.includes(item.id)
+    const filteredDescriptions = packagesData.filter(
+      (item) => item.isDescription
     );
-    // console.log(filteredDescriptions);
-    const sortedDescriptions = filteredDescriptions.sort((a, b) => {
-      return descriptionIds.indexOf(a.id) - descriptionIds.indexOf(b.id);
-    });
-    // console.log(sortedDescriptions);
+
+    const sortedDescriptions = filteredDescriptions.sort(
+      (a, b) => typeOrder.indexOf(a.type) - typeOrder.indexOf(b.type)
+    );
 
     setDescriptions(sortedDescriptions);
   }, [packagesData]);
@@ -78,15 +66,23 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
   };
   // MODAL FUNCTION TO EDIT DESCRIPTIONS
   const handleEditDescription = async (descriptionId: string, type: string) => {
-    const result = await dashboard.openModal({
-      modalId: "bb733afb-b807-4811-9122-04428fb97dd9",
-      params: { id: descriptionId, type: type },
-    });
+    try {
+      const result = await dashboard.openModal({
+        modalId: "bb733afb-b807-4811-9122-04428fb97dd9",
+        params: { id: descriptionId, type: type },
+      });
 
-    const modalResult = (await result.modalClosed) as ModalResult;
+      const modalResult = (await result?.modalClosed) as ModalResult;
 
-    if (modalResult?.saved) {
-      await onDataChange;
+      if (modalResult?.saved) {
+        await onDataChange();
+      }
+    } catch (error) {
+      console.error("Error editing description:", error);
+      dashboard.showToast({
+        message: "Failed to edit description",
+        type: "error",
+      });
     }
   };
 
@@ -196,6 +192,7 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
     option: DropdownLayoutValueOption,
     sameOptionWasPicked: boolean
   ) => {
+    if (sameOptionWasPicked) return;
     const selected = typeOptions.find((o) => o.id === option.id);
     if (selected) handleFilterSelection(selected);
   };
@@ -204,6 +201,7 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
     option: DropdownLayoutValueOption,
     sameOptionWasPicked: boolean
   ) => {
+    if (sameOptionWasPicked) return;
     const selected = sessionOptions.find((o) => o.id === option.id);
     if (selected) handleFilterSelection(selected);
   };
@@ -263,10 +261,10 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
   }
 
   // SORTING
-  const handleSortClick = (columns: any) => {
+  const handleSortClick = (_colData: TableColumn<PackageItem>, colNum: number) => {
     let key: keyof PackageItem;
 
-    switch (columns.id) {
+    switch (colNum) {
       case 0:
         key = "type";
         break;
@@ -313,15 +311,23 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
 
   // EDIT BUTTON
   const handleEdit = async (row: PackageItem) => {
-    const result = await dashboard.openModal({
-      modalId: "8165bb05-e4cc-48cd-bc95-2b36f72a96ef",
-      params: { id: row.id },
-    });
+    try {
+      const result = await dashboard.openModal({
+        modalId: "8165bb05-e4cc-48cd-bc95-2b36f72a96ef",
+        params: { id: row.id },
+      });
 
-    const modalResult = (await result.modalClosed) as ModalResult;
+      const modalResult = (await result?.modalClosed) as ModalResult;
 
-    if (modalResult?.saved) {
-      await onDataChange();
+      if (modalResult?.saved) {
+        await onDataChange();
+      }
+    } catch (error) {
+      console.error("Error editing package:", error);
+      dashboard.showToast({
+        message: "Failed to edit package",
+        type: "error",
+      });
     }
   };
 

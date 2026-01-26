@@ -11,6 +11,7 @@ import {
   FormField,
   InputArea,
   Dropdown,
+  DropdownLayoutValueOption,
 } from "@wix/design-system";
 import "@wix/design-system/styles.global.css";
 import { width, height } from "./modal.json";
@@ -81,9 +82,9 @@ const Modal: FC = () => {
     setFaqData({ ...faqData, answer: newAnswer });
   };
 
-  const handleTopicChange = (option: any) => {
+  const handleTopicChange = (option: DropdownLayoutValueOption) => {
     if (!faqData) return;
-    setFaqData({ ...faqData, topic: option.value });
+    setFaqData({ ...faqData, topic: String(option.value) });
   };
 
   // HANDLES FOR SAVING & CANCELLING
