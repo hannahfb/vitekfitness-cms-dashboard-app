@@ -19,7 +19,7 @@ import { dashboard } from "@wix/dashboard";
 import "@wix/design-system/styles.global.css";
 import { items } from "@wix/data";
 import { TextItem, SectionOption, ImageModalResponse, SaveModalResponse } from "../types";
-import { convertWixImageUrl } from "../utils/content";
+import { convertWixImageUrl, getImageDimensions } from "../utils/content";
 
 interface TextContentEditorProps {
   textData: TextItem[];
@@ -164,19 +164,7 @@ const TextContentEditor: FC<TextContentEditorProps> = ({ textData }) => {
     });
   }
 
-  const getImageDimensions = (wixUrl: string | null) => {
-    if (!wixUrl) return { width: 0, height: 0 };
-
-    const width = wixUrl.match(/originWidth=(\d+)/);
-    const height = wixUrl.match(/originHeight=(\d+)/);
-
-    return {
-      width: width ? parseInt(width[1]) : 0,
-      height: height ? parseInt(height[1]) : 0,
-    };
-  };
-
-  // OPEN IMAGE UPDATE MODAL
+    // OPEN IMAGE UPDATE MODAL
   const handleUpdateImage = async () => {
     let currentImage = content.image;
     let currentAltText = content.imageAltText;

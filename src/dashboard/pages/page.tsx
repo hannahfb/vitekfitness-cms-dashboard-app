@@ -38,11 +38,15 @@ const Index: FC = () => {
           );
           if (isMounted) setTextData(pageData);
         } else if (activeTabId === 3) {
-          const data: PackageItem[] = await fetchCollection<any, PackageItem>(
-            "packages",
-            mapPackages,
-          );
-          if (isMounted) setPackagesData(data);
+          const [packagesResult, textResult] = await Promise.all([
+            fetchCollection<any, PackageItem>("packages", mapPackages),
+            fetchCollection<any, TextItem>("text", mapText),
+          ]);
+          const pageData = textResult.filter((item) => item.page === "Pricing");
+          if (isMounted) {
+            setPackagesData(packagesResult);
+            setTextData(pageData);
+          }
         } else if (activeTabId === 5) {
           const data: FAQItem[] = await fetchCollection<any, FAQItem>(
             "faq",
@@ -161,6 +165,7 @@ const Index: FC = () => {
           {activeTabId === 3 && (
             <PackagesEditor
               packagesData={packagesData}
+              textData={textData}
               onDataChange={refreshTabData}
             />
           )}

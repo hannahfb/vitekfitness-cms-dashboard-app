@@ -35,7 +35,7 @@ const Modal: FC = () => {
   ];
 
   useEffect(() => {
-    dashboard.observeState((params: { id: string }) => {
+    const subscription = dashboard.observeState((params: { id: string }) => {
       const currentId = params.id;
       if (!currentId) return;
 
@@ -69,6 +69,8 @@ const Modal: FC = () => {
 
       getRowData();
     });
+
+    return () => subscription.disconnect();
   }, []);
 
   // UPDATE FIELDS AS TYPING

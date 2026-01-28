@@ -28,7 +28,7 @@ const Modal: FC = () => {
   const [showConfirmation, setShowConfirmation] = useState(false);
 
   useEffect(() => {
-    dashboard.observeState(
+    const subscription = dashboard.observeState(
       (params: {
         id: string;
         image: string;
@@ -48,6 +48,8 @@ const Modal: FC = () => {
         });
       },
     );
+
+    return () => subscription.disconnect();
   }, []);
 
   const handleImageUpload = () => {

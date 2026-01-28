@@ -1,4 +1,4 @@
-import React, { type FC, useState, useEffect } from "react";
+import React, { type FC, useState, useEffect, useMemo } from "react";
 import { dashboard } from "@wix/dashboard";
 import {
   Card,
@@ -17,6 +17,12 @@ import {
   Tooltip,
   DropdownLayoutValueOption,
   TableColumn,
+  Input,
+  InputArea,
+  RichTextInputArea,
+  Button,
+  ImageViewer,
+  SectionHeader,
 } from "@wix/design-system";
 import "@wix/design-system/styles.global.css";
 import {
@@ -27,21 +33,33 @@ import {
   FilterTag,
   FilterOption,
   ModalResult,
+  TextItem,
+  SaveModalResponse,
+  ImageModalResponse,
 } from "../types";
+import { items } from "@wix/data";
 import { Edit as EditIcon } from "@wix/wix-ui-icons-common";
+import {
+  convertWixImageUrl,
+  getImageDimensions,
+  reformatHtmlTags,
+} from "../utils/content";
 
 interface PackagesEditorProps {
   packagesData: PackageItem[];
+  textData: TextItem[];
   onDataChange: () => Promise<void>;
 }
 
 const PackagesEditor: FC<PackagesEditorProps> = ({
   packagesData,
+  textData,
   onDataChange,
 }) => {
   const [sortedPackData, setSortedPackData] = useState<PackageItem[]>([
     ...packagesData,
   ]);
+  const [pricingContentData, setPricingContentData] = useState<TextItem[]>([]);
   const [descriptions, setDescriptions] = useState<PackageItem[]>([]);
   const typeOrder = ["Quick 40", "Standard 60", "Extended 75"];
 
@@ -49,21 +67,17 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
     setSortedPackData([...packagesData]);
 
     const filteredDescriptions = packagesData.filter(
-      (item) => item.isDescription
+      (item) => item.isDescription,
     );
 
     const sortedDescriptions = filteredDescriptions.sort(
-      (a, b) => typeOrder.indexOf(a.type) - typeOrder.indexOf(b.type)
+      (a, b) => typeOrder.indexOf(a.type) - typeOrder.indexOf(b.type),
     );
 
     setDescriptions(sortedDescriptions);
   }, [packagesData]);
 
   // PACKAGE DESCRIPTIONS
-  // EDIT FOR DISPLAYING RICHTEXT
-  const reformatHtmlTags = (html: string): string => {
-    return html.replace(/<[^>]*>/g, "").trim();
-  };
   // MODAL FUNCTION TO EDIT DESCRIPTIONS
   const handleEditDescription = async (descriptionId: string, type: string) => {
     try {
@@ -86,12 +100,58 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
     }
   };
 
-  // FILTER VARIABLES
+  // CONTENT FILTER VARIABLES
+  const contentOptions: TypeOption[] = [
+    { id: 0, value: "Descriptions", type: "content" },
+    { id: 1, value: "Intro Text", type: "content" },
+    { id: 2, value: "Intro Banner", type: "content" },
+    { id: 3, value: "Dance Discount Banner", type: "content" },
+    { id: 4, value: "App", type: "content" },
+    { id: 5, value: "Trial", type: "content" },
+    { id: 6, value: "Consult", type: "content" },
+    { id: 7, value: "Form", type: "content" },
+  ];
+
+  // CONTENT SORTING
+  const sectionMapping: Record<number, string> = {
+    1: "Features",
+    2: "Intro Banner",
+    3: "Dance",
+    4: "App",
+    5: "Trial",
+    6: "Consult",
+    7: "Form",
+  };
+
+  const handleContentSelect = (option: DropdownLayoutValueOption) => {
+    const selected = contentOptions[option.id as number];
+    setSelectedContent(selected);
+
+    if (option.id === 0) return;
+
+    const sectionName = sectionMapping[option.id as number];
+    const item = textData.find((item) => item.section === sectionName);
+
+    if (item) {
+      setContent({
+        id: item.id,
+        title: item.title,
+        header: item.header,
+        content: item.content,
+        section: item.section,
+        image: item.image || null,
+        imageAltText: item.imageAltText || "",
+      });
+    }
+  };
+
+  // PRICING FILTER VARIABLES
   const typeOptions: TypeOption[] = [
     { id: 0, value: "All Types", type: "type" },
     { id: 1, value: "Quick 40", type: "type" },
     { id: 2, value: "Standard 60", type: "type" },
     { id: 3, value: "Extended 75", type: "type" },
+    { id: 4, value: "Nutritional", type: "type" },
   ];
 
   const sessionOptions: SessionOption[] = [
@@ -108,13 +168,209 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
   // STATES FOR TRACKING FILTER SELECTION
   const [selectedSession, setSelectedSession] = useState(sessionOptions[0]);
   const [selectedType, setSelectedType] = useState(typeOptions[0]);
+  const [selectedContent, setSelectedContent] = useState(contentOptions[0]);
 
   const [subtoolbarVisible, setSubtoolbarVisible] = useState(false);
   const [filters, setFilters] = useState<FilterTag[]>([]);
 
+  // CONTENT EDITING STATE
+  const [content, setContent] = useState({
+    id: "",
+    title: "",
+    header: "",
+    content: "",
+    section: "",
+    image: null as string | null,
+    imageAltText: "",
+  });
+  const [contentKey, setContentKey] = useState(0);
+
+  const originalItem = useMemo(() => {
+    return textData.find((item) => item.id === content.id);
+  }, [textData, content.id]);
+
+  const imageDimensions = useMemo(
+    () => getImageDimensions(content.image),
+    [content.image]
+  );
+
+  const handleContentChange = (
+    newContent: string,
+    field: keyof typeof content,
+  ) => {
+    setContent((prev) => ({ ...prev, [field]: newContent }));
+  };
+
+  const getFieldError = (field: keyof typeof content) => {
+    if (!originalItem?.[field]) return false;
+
+    if (field === "content") {
+      const strippedContent =
+        (content[field] as string)?.replace(/<[^>]*>/g, "").trim() || "";
+      return strippedContent === "";
+    }
+
+    return !content[field] || (content[field] as string).trim() === "";
+  };
+
+    const isInputValid = () => {
+    if (!originalItem) return false;
+
+    const fieldsToValidate: (keyof typeof content)[] = ["header", "content"];
+
+    return fieldsToValidate.every(
+      (field) =>
+        !originalItem[field] ||
+        (content[field] && (content[field] as string).trim() !== ""),
+    );
+  };
+
+  const handleRevertContent = () => {
+    if (originalItem) {
+      setContent({
+        id: originalItem.id,
+        title: originalItem.title,
+        header: originalItem.header,
+        content: originalItem.content,
+        section: originalItem.section,
+        image: originalItem.image || null,
+        imageAltText: originalItem.imageAltText || "",
+      });
+      setContentKey((prev) => prev + 1);
+    }
+  };
+
+  const handleSaveClick = async () => {
+    const result = await dashboard.openModal({
+      modalId: "a8f952c2-c46a-4f6e-b129-4a4ae98b8537",
+      params: {
+        id: content.id,
+        header: encodeURIComponent(content.header || ""),
+        content: encodeURIComponent(content.content || ""),
+      },
+    });
+
+    const saveResult = (await result?.modalClosed) as
+      | SaveModalResponse
+      | undefined;
+    if (saveResult?.saved) {
+      dashboard.showToast({
+        message: "Your changes were saved",
+        type: "success",
+      });
+    }
+  };
+
+  const handleUpdateImage = async () => {
+    let currentImage = content.image;
+    let currentAltText = content.imageAltText;
+
+    while (true) {
+      const dimensions = getImageDimensions(currentImage);
+
+      const result = await dashboard.openModal({
+        modalId: "73c35a91-c02c-436e-b640-5118da5cc5a2",
+        params: {
+          id: content.id,
+          image: encodeURIComponent(currentImage || ""),
+          imageAltText: encodeURIComponent(currentAltText || ""),
+          imageWidth: dimensions.width.toString(),
+          imageHeight: dimensions.height.toString(),
+        },
+      });
+
+      const modalData = (await result?.modalClosed) as
+        | ImageModalResponse
+        | undefined;
+
+      // Opens Wix Media Manager modal
+      if (modalData?.action === "openMediaManager") {
+        try {
+          const mediaResult = await dashboard.openMediaManager({
+            category: "IMAGE",
+            multiSelect: false,
+          });
+
+          if (mediaResult?.items && mediaResult.items.length > 0) {
+            const selectedMedia = mediaResult.items[0];
+            const wixImageUri = selectedMedia.media?.image?.image;
+
+            if (wixImageUri) {
+              currentImage = wixImageUri;
+              currentAltText = modalData?.altText || currentAltText;
+              continue;
+            }
+          }
+
+          continue;
+        } catch (error) {
+          console.error("Error with Media Manager:", error);
+          break;
+        }
+      }
+
+      if (modalData?.saved) {
+        const newImageUrl = modalData?.newImageUrl;
+        const newAltText = modalData?.altText;
+
+        if (
+          newImageUrl &&
+          (newImageUrl !== content.image || newAltText !== content.imageAltText)
+        ) {
+          try {
+            await items
+              .patch("text", content.id)
+              .setField("image", newImageUrl)
+              .setField("imageAltText", newAltText)
+              .run();
+
+            setContent((prev) => ({
+              ...prev,
+              image: newImageUrl,
+              imageAltText: newAltText ?? "",
+            }));
+
+            dashboard.showToast({
+              message: "Image updated successfully",
+              type: "success",
+            });
+          } catch (error) {
+            console.error("Error updating image:", error);
+            dashboard.showToast({
+              message: "Failed to update image",
+              type: "error",
+            });
+          }
+        } else if (newAltText !== content.imageAltText) {
+          try {
+            await items
+              .patch("text", content.id)
+              .setField("imageAltText", newAltText)
+              .run();
+
+            setContent((prev) => ({ ...prev, imageAltText: newAltText ?? "" }));
+
+            dashboard.showToast({
+              message: "Alt text updated successfully",
+              type: "success",
+            });
+          } catch (error) {
+            console.error("Error updating alt text:", error);
+            dashboard.showToast({
+              message: "Failed to update alt text",
+              type: "error",
+            });
+          }
+        }
+      }
+
+      break;
+    }
+  };
+
   const compileFilters = (
     typeSelection: TypeOption,
-    sessionSelection: SessionOption
+    sessionSelection: SessionOption,
   ) => {
     const newFilters: FilterTag[] = [];
 
@@ -190,7 +446,7 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
 
   const handleTypeSelect = (
     option: DropdownLayoutValueOption,
-    sameOptionWasPicked: boolean
+    sameOptionWasPicked: boolean,
   ) => {
     if (sameOptionWasPicked) return;
     const selected = typeOptions.find((o) => o.id === option.id);
@@ -199,7 +455,7 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
 
   const handleSessionSelect = (
     option: DropdownLayoutValueOption,
-    sameOptionWasPicked: boolean
+    sameOptionWasPicked: boolean,
   ) => {
     if (sameOptionWasPicked) return;
     const selected = sessionOptions.find((o) => o.id === option.id);
@@ -261,7 +517,10 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
   }
 
   // SORTING
-  const handleSortClick = (_colData: TableColumn<PackageItem>, colNum: number) => {
+  const handleSortClick = (
+    _colData: TableColumn<PackageItem>,
+    colNum: number,
+  ) => {
     let key: keyof PackageItem;
 
     switch (colNum) {
@@ -395,93 +654,227 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
 
   return (
     <Layout>
-      <Cell span={12}>
+      <Cell span={selectedContent.id !== 0 && originalItem?.image ? 8 : 12}>
         <Card>
-          <Card.Header title="Descriptions" />
+          <TableToolbar>
+            <TableToolbar.ItemGroup>
+              <TableToolbar.Item>
+                <TableToolbar.Title>Content</TableToolbar.Title>
+              </TableToolbar.Item>
+            </TableToolbar.ItemGroup>
+            <TableToolbar.ItemGroup>
+              <TableToolbar.Item>
+                <FormField>
+                  <Dropdown
+                    size="small"
+                    border="round"
+                    selectedId={selectedContent.id}
+                    options={contentOptions}
+                    onSelect={handleContentSelect}
+                  />
+                </FormField>
+              </TableToolbar.Item>
+            </TableToolbar.ItemGroup>
+          </TableToolbar>
           <Card.Divider />
+          <SectionHeader title={`${selectedContent.value} section`} />
           <Card.Content>
-            <Layout>
-              {descriptions.map((desc, index) => (
-                <Cell key={desc?.id || index} span={4}>
-                  <Box direction="horizontal" gap="SP" verticalAlign="top">
-                    <Box direction="vertical" gap="SP1" flexGrow={1}>
-                      <Heading size="small">{desc?.type}</Heading>
-                      <Text size="small">
-                        {reformatHtmlTags(desc?.description || "")}
-                      </Text>
+            {selectedContent.id === 0 ? (
+              <Layout>
+                {descriptions.map((desc, index) => (
+                  <Cell key={desc?.id || index} span={4}>
+                    <Box direction="horizontal" gap="SP" verticalAlign="top">
+                      <Box direction="vertical" gap="SP1" flexGrow={1}>
+                        <Heading size="small">{desc?.type}</Heading>
+                        <Text size="small">
+                          {reformatHtmlTags(desc?.description || "")}
+                        </Text>
+                      </Box>
+                      <Tooltip content="Edit description">
+                        <IconButton
+                          priority="secondary"
+                          onClick={() =>
+                            handleEditDescription(desc?.id, desc?.type)
+                          }
+                        >
+                          <EditIcon />
+                        </IconButton>
+                      </Tooltip>
                     </Box>
-                    <Tooltip content="Edit description">
-                      <IconButton
-                        priority="secondary"
-                        onClick={() =>
-                          handleEditDescription(desc?.id, desc?.type)
+                  </Cell>
+                ))}
+              </Layout>
+            ) : (
+              <Layout>
+                <Cell span={6}>
+                  <FormField label="Header">
+                    {originalItem?.header ? (
+                      <InputArea
+                        key={`header-${content.id}-${contentKey}`}
+                        value={content.header || ""}
+                        onChange={(e) =>
+                          handleContentChange(e.target.value, "header")
                         }
-                      >
-                        <EditIcon />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
+                        autoGrow
+                        minRowsAutoGrow={1}
+                        status={getFieldError("header") ? "error" : undefined}
+                        statusMessage={
+                          getFieldError("header")
+                            ? "Field cannot be empty"
+                            : undefined
+                        }
+                      />
+                    ) : (
+                      <Input readOnly placeholder="No content available" />
+                    )}
+                  </FormField>
                 </Cell>
-              ))}
-            </Layout>
+                <Cell>
+                  <FormField
+                    label="Content"
+                    status={getFieldError("content") ? "error" : undefined}
+                    statusMessage={
+                      getFieldError("content")
+                        ? "Field cannot be empty"
+                        : undefined
+                    }
+                  >
+                    {originalItem?.content ? (
+                      <RichTextInputArea
+                        key={`${content.id}-${contentKey}`}
+                        minHeight="120px"
+                        initialValue={content.content}
+                        onChange={(newContent) =>
+                          handleContentChange(newContent, "content")
+                        }
+                      />
+                    ) : (
+                      <Input readOnly placeholder="No content available" />
+                    )}
+                  </FormField>
+                </Cell>
+                <Box gap="20px">
+                  <Button onClick={handleSaveClick} disabled={!isInputValid()}>
+                    Save
+                  </Button>
+                  <Button priority="secondary" onClick={handleRevertContent}>
+                    Revert
+                  </Button>
+                </Box>
+              </Layout>
+            )}{" "}
           </Card.Content>
         </Card>
       </Cell>
-      <Cell span={12}>
-        <Card>
-          <Table
-            data={sortedPackData}
-            columns={columns}
-            onSortClick={handleSortClick}
-          >
-            <TableToolbar>
-              <TableToolbar.ItemGroup>
-                <TableToolbar.Item>
-                  <TableToolbar.Title>Pricing</TableToolbar.Title>
-                </TableToolbar.Item>
-              </TableToolbar.ItemGroup>
-              <TableToolbar.ItemGroup>
-                <TableToolbar.Item>
+      {selectedContent.id !== 0 && originalItem?.image && (
+        <Cell span={4}>
+          <Card stretchVertically={true}>
+            <Card.Header title="Image" />
+            <Card.Divider />
+            <Card.Content>
+              <Box height="SP4" />
+              <Layout gap="24px">
+                <Cell span={12}>
                   <FormField>
-                    <Dropdown
-                      size="small"
-                      border="round"
-                      selectedId={selectedType.id}
-                      options={typeOptions}
-                      value={String(selectedType.value)}
-                      onSelect={handleTypeSelect}
-                    />
+                    <Box align="center">
+                      <ImageViewer
+                        imageUrl={convertWixImageUrl(content.image) || ""}
+                        height="80%"
+                        width="80%"
+                        showRemoveButton={false}
+                        onUpdateImage={handleUpdateImage}
+                      />
+                    </Box>
                   </FormField>
-                </TableToolbar.Item>
-                <TableToolbar.Item>
-                  <FormField>
-                    <Dropdown
-                      size="small"
-                      border="round"
-                      selectedId={selectedSession.id}
-                      options={sessionOptions}
-                      value={String(selectedSession.value)}
-                      onSelect={handleSessionSelect}
-                    />
-                  </FormField>
-                </TableToolbar.Item>
-              </TableToolbar.ItemGroup>
-            </TableToolbar>
-            {subtoolbarVisible && (
-              <Table.SubToolbar>
-                <Cell>
-                  <FormField label="Filtered by:" labelPlacement="left">
-                    <TagList
-                      tags={filters}
-                      actionButton={{ label: "Clear All", onClick: clearAll }}
-                      onTagRemove={removeTag}
+                  <Box align="center">
+                    <Tooltip content="Please only upload images with the same dimensions.">
+                      <Text size="small">
+                        Dimensions: {imageDimensions.width}x
+                        {imageDimensions.height} px
+                      </Text>
+                    </Tooltip>
+                  </Box>
+                </Cell>
+                <Cell span={12}>
+                  <FormField label="Alt text">
+                    <InputArea
+                      value={content.imageAltText || ""}
+                      onChange={(e) =>
+                        handleContentChange(e.target.value, "imageAltText")
+                      }
+                      autoGrow
+                      minRowsAutoGrow={1}
+                      status={getFieldError("imageAltText") ? "error" : undefined}
+                      statusMessage={
+                        getFieldError("imageAltText")
+                          ? "Field cannot be empty"
+                          : undefined
+                      }
                     />
                   </FormField>
                 </Cell>
-              </Table.SubToolbar>
-            )}
-            <Table.Content />
-          </Table>
+              </Layout>
+            </Card.Content>
+          </Card>
+        </Cell>
+      )}
+      <Cell span={12}>
+        <Card>
+          <Box style={{ overflow: "hidden", borderRadius: "0 0 8px 8px" }}>
+            <Table
+              data={sortedPackData}
+              columns={columns}
+              onSortClick={handleSortClick}
+            >
+              <TableToolbar>
+                <TableToolbar.ItemGroup>
+                  <TableToolbar.Item>
+                    <TableToolbar.Title>Pricing</TableToolbar.Title>
+                  </TableToolbar.Item>
+                </TableToolbar.ItemGroup>
+                <TableToolbar.ItemGroup>
+                  <TableToolbar.Item>
+                    <FormField>
+                      <Dropdown
+                        size="small"
+                        border="round"
+                        selectedId={selectedType.id}
+                        options={typeOptions}
+                        value={String(selectedType.value)}
+                        onSelect={handleTypeSelect}
+                      />
+                    </FormField>
+                  </TableToolbar.Item>
+                  <TableToolbar.Item>
+                    <FormField>
+                      <Dropdown
+                        size="small"
+                        border="round"
+                        selectedId={selectedSession.id}
+                        options={sessionOptions}
+                        value={String(selectedSession.value)}
+                        onSelect={handleSessionSelect}
+                      />
+                    </FormField>
+                  </TableToolbar.Item>
+                </TableToolbar.ItemGroup>
+              </TableToolbar>
+              {subtoolbarVisible && (
+                <Table.SubToolbar>
+                  <Cell>
+                    <FormField label="Filtered by:" labelPlacement="left">
+                      <TagList
+                        tags={filters}
+                        actionButton={{ label: "Clear All", onClick: clearAll }}
+                        onTagRemove={removeTag}
+                      />
+                    </FormField>
+                  </Cell>
+                </Table.SubToolbar>
+              )}
+              <Table.Content />
+            </Table>
+          </Box>
         </Card>
       </Cell>
     </Layout>

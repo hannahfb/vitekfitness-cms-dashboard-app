@@ -1,6 +1,6 @@
 import React, { type FC, useState, useEffect } from "react";
 import { dashboard } from "@wix/dashboard";
-import { WixDesignSystemProvider } from "@wix/design-system";
+import { WixDesignSystemProvider, Box, Text } from "@wix/design-system";
 import "@wix/design-system/styles.global.css";
 import SaveConfirmationModal from "../../../components/SaveConfirmation";
 import { items } from "@wix/data";
@@ -19,12 +19,14 @@ const Modal: FC = () => {
   } | null>(null);
 
   useEffect(() => {
-    dashboard.observeState((state: { id: string; question: string }) => {
+    const subscription = dashboard.observeState((state: { id: string; question: string }) => {
       setParams({
         id: state.id,
         question: decodeURIComponent(state.question),
       });
     });
+
+    return () => subscription.disconnect();
   }, []);
 
   const handleConfirmDelete = async () => {
@@ -57,11 +59,21 @@ const Modal: FC = () => {
     dashboard.closeModal({ deleted: false });
   };
 
+  if (!params) {
+    return (
+      <WixDesignSystemProvider features={{ newColorsBranding: true }}>
+        <Box padding="SP4">
+          <Text>Loading...</Text>
+        </Box>
+      </WixDesignSystemProvider>
+    );
+  }
+
   return (
     <WixDesignSystemProvider features={{ newColorsBranding: true }}>
       <SaveConfirmationModal
         title="Delete question"
-        message={`Are you sure you want to delete the question "${params?.question}"? This action cannot be undone.`}
+        message={`Are you sure you want to delete the question "${params.question}"? This action cannot be undone.`}
         primaryButtonText="Yes, delete"
         onConfirm={handleConfirmDelete}
         onCancel={handleCancel}

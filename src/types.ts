@@ -50,7 +50,7 @@ export interface SortKey {
 }
 
 export interface TypeOption extends DropdownLayoutValueOption {
-  type: "type";
+  type: "type" | "content";
 }
 
 export interface SessionOption extends DropdownLayoutValueOption {

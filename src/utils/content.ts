@@ -1,3 +1,19 @@
+export const getImageDimensions = (wixUrl: string | null) => {
+  if (!wixUrl) return { width: 0, height: 0 };
+
+  const width = wixUrl.match(/originWidth=(\d+)/);
+  const height = wixUrl.match(/originHeight=(\d+)/);
+
+  return {
+    width: width ? parseInt(width[1]) : 0,
+    height: height ? parseInt(height[1]) : 0,
+  };
+};
+
+export const reformatHtmlTags = (html: string): string => {
+  return html.replace(/<[^>]*>/g, "").trim();
+};
+
 export const convertWixImageUrl = (wixUrl: string | null): string | null => {
   if (!wixUrl) return null;
 

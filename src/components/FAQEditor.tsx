@@ -24,6 +24,7 @@ import "@wix/design-system/styles.global.css";
 import * as Icons from "@wix/wix-ui-icons-common";
 import { items } from "@wix/data";
 import { FAQItem, ModalResult, FilterTag } from "../types";
+import { reformatHtmlTags } from "../utils/content";
 
 interface FAQEditorProps {
   faqData: FAQItem[];
@@ -83,7 +84,7 @@ const FAQEditor: FC<FAQEditorProps> = ({ faqData, onDataChange }) => {
       data = data.filter(
         (item) =>
           item.question.toLowerCase().includes(search) ||
-          stripHtml(item.answer).toLocaleLowerCase().includes(search)
+          reformatHtmlTags(item.answer).toLocaleLowerCase().includes(search)
       );
     }
 
@@ -279,12 +280,7 @@ const FAQEditor: FC<FAQEditorProps> = ({ faqData, onDataChange }) => {
     }
   };
 
-  // REFORMAT RICHTEXT
-  const stripHtml = (html: string) => {
-    return html.replace(/<[^>]*>/g, "").trim();
-  };
-
-  // TOPIC COLOURS
+    // TOPIC COLOURS
   const topicColors: { [key: string]: string } = {
     Training: "B50",
     Admin: "G50",
@@ -302,7 +298,7 @@ const FAQEditor: FC<FAQEditorProps> = ({ faqData, onDataChange }) => {
     {
       title: "Answer",
       render: (row: FAQItem) => {
-        const plainText = stripHtml(row.answer);
+        const plainText = reformatHtmlTags(row.answer);
         return (
           <Text secondary>
             {plainText.length > 150
@@ -339,6 +335,7 @@ const FAQEditor: FC<FAQEditorProps> = ({ faqData, onDataChange }) => {
         const currentIndex = sortedFAQData.findIndex(
           (faq) => faq.id === row.id
         );
+        if (currentIndex === -1) return null;
         const atTop = currentIndex === 0;
         const atBottom = currentIndex === sortedFAQData.length - 1;
 
@@ -482,7 +479,9 @@ const FAQEditor: FC<FAQEditorProps> = ({ faqData, onDataChange }) => {
             </Card>
           </Page.Sticky>
           <Card>
-            <Table.Content titleBarVisible={false} />
+            <Box style={{ overflow: "hidden", borderRadius: "0 0 8px 8px" }}>
+              <Table.Content titleBarVisible={false} />
+            </Box>
           </Card>
         </Table>
       </Cell>
