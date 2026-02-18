@@ -14,6 +14,16 @@ export const reformatHtmlTags = (html: string): string => {
   return html.replace(/<[^>]*>/g, "").trim();
 };
 
+export const getLangCode = (lang: string) => {
+  switch (lang) {
+    case "German":
+      return "DE";
+    case "English":
+    default:
+      return "EN";
+  }
+};
+
 export const convertWixImageUrl = (wixUrl: string | null): string | null => {
   if (!wixUrl) return null;
 

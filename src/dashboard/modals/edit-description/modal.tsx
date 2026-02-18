@@ -6,6 +6,7 @@ import {
   Box,
   CustomModalLayout,
   RichTextInputArea,
+  InputArea,
   Layout,
   Cell,
   Heading,
@@ -14,53 +15,38 @@ import {
 import "@wix/design-system/styles.global.css";
 import { width, height } from "./modal.json";
 import { items } from "@wix/data";
-import { PackageItem } from "../../../types";
 import SaveConfirmationModal from "../../../components/SaveConfirmation";
 
-// To open your modal, call `openModal` with your modal id.
-// e.g.
-// import { dashboard } from '@wix/dashboard';
-// function MyComponent() {
-//   return <button onClick={() => dashboard.openModal('bb733afb-b807-4811-9122-04428fb97dd9')}>Open Modal</button>;
-// }
 const Modal: FC = () => {
   const [id, setId] = useState<string | null>(null);
-  const [packageData, setPackageData] = useState<PackageItem | null>(null);
+  const [section, setSection] = useState<string>("");
+  const [description, setDescription] = useState<{ header: string; content: string }>({ header: "", content: "" });
+  const [isLoaded, setIsLoaded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
 
   useEffect(() => {
-    const subscription = dashboard.observeState((params: { id: string }) => {
+    const subscription = dashboard.observeState((params: { id: string; type: string }) => {
       const currentId = params.id;
       if (!currentId) return;
 
       setId(currentId);
+      setSection(params.type || "");
 
       async function getRowData() {
         try {
-          const result = await items.query("packages").find();
+          const result = await items.query("text").find();
           const match = result.items.find((item) => item._id === currentId);
 
           if (!match) {
-            console.error(`No package found for ID: ${currentId}`);
-            setPackageData(null);
+            console.error(`No text item found for ID: ${currentId}`);
             return;
           }
 
-          const formatted: PackageItem = {
-            id: match._id,
-            type: match.packageType,
-            name: match.title,
-            totalPrice: match.totalPrice,
-            sessionPrice: match.sessionPrice,
-            sessionQty: match.sessionsQty,
-            validity: match.validityMonths,
-            description: match.description,
-          };
-          setPackageData(formatted);
+          setDescription({ header: match.header || "", content: match.content || "" });
+          setIsLoaded(true);
         } catch (error) {
-          console.error("Error fetching package: ", error);
-          setPackageData(null);
+          console.error("Error fetching description: ", error);
         }
       }
 
@@ -70,10 +56,9 @@ const Modal: FC = () => {
     return () => subscription.disconnect();
   }, []);
 
-  // UPDATE DESCRIPTION AS TYPING
-  const handleDescriptionChange = (newDescription: string) => {
-    if (!packageData) return;
-    setPackageData({ ...packageData, description: newDescription });
+  // UPDATE FIELDS AS TYPING
+  const handleDescriptionChange = (value: string, field: keyof typeof description) => {
+    setDescription((prev) => ({ ...prev, [field]: value }));
   };
 
   // HANDLES FOR SAVING & CANCELLING
@@ -88,8 +73,9 @@ const Modal: FC = () => {
 
     try {
       await items
-        .patch("packages", id)
-        .setField("description", packageData?.description)
+        .patch("text", id)
+        .setField("header", description.header)
+        .setField("content", description.content)
         .run();
 
       dashboard.showToast({
@@ -114,7 +100,7 @@ const Modal: FC = () => {
     setShowConfirmation(false);
   };
 
-  if (!packageData) {
+  if (!isLoaded) {
     return (
       <WixDesignSystemProvider features={{ newColorsBranding: true }}>
         <Box padding="SP4">
@@ -128,7 +114,7 @@ const Modal: FC = () => {
     <WixDesignSystemProvider features={{ newColorsBranding: true }}>
       {showConfirmation ? (
         <SaveConfirmationModal
-          message={`These changes will be live immediately. Are you sure you want to save these to the ${packageData.type} description?`}
+          message={`These changes will be live immediately. Are you sure you want to save these to the ${section} description?`}
           onConfirm={handleConfirmSave}
           onCancel={handleCancelSave}
           isLoading={isSaving}
@@ -148,15 +134,26 @@ const Modal: FC = () => {
           content={
             <Layout gap="20px">
               <Cell span={12}>
-                <Heading size="medium">{packageData.type}</Heading>
+                <Heading size="medium">{section}</Heading>
+              </Cell>
+              <Cell span={12}>
+                <FormField label="Duration">
+                  <InputArea
+                    key={`header-${id}`}
+                    value={description.header}
+                    onChange={(e) => handleDescriptionChange(e.target.value, "header")}
+                    autoGrow
+                    minRowsAutoGrow={1}
+                  />
+                </FormField>
               </Cell>
               <Cell span={12}>
                 <FormField label="Description">
                   <RichTextInputArea
-                    key={packageData.id}
+                    key={id}
                     minHeight="120px"
-                    initialValue={packageData.description}
-                    onChange={handleDescriptionChange}
+                    initialValue={description.content}
+                    onChange={(newContent) => handleDescriptionChange(newContent, "content")}
                   />
                 </FormField>
               </Cell>

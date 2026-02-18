@@ -1,5 +1,6 @@
-import React, { type FC, useState } from "react";
+import React, { type FC, useState, useEffect } from "react";
 import { dashboard } from "@wix/dashboard";
+import { getLangCode } from "../../../utils/content";
 import {
   WixDesignSystemProvider,
   CustomModalLayout,
@@ -26,6 +27,7 @@ const Modal: FC = () => {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [selectedTopic, setSelectedTopic] = useState<number | undefined>(undefined);
+  const [language, setLanguage] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
 
@@ -36,6 +38,23 @@ const Modal: FC = () => {
     { id: 3, value: "Payment" },
     { id: 4, value: "Packages" },
   ];
+
+  // LANGUAGE OPTIONS
+  const languageOptions = [
+    { id: 1, value: "English" },
+    { id: 2, value: "German" },
+  ];
+
+  // PRE-FILL LANGUAGE FROM PARENT
+  useEffect(() => {
+    const subscription = dashboard.observeState((params: { language?: string }) => {
+      if (params.language) {
+        setLanguage(params.language);
+      }
+    });
+
+    return () => subscription.disconnect();
+  }, []);
 
   // UPDATE FIELDS AS TYPING
   const handleQuestionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -50,9 +69,13 @@ const Modal: FC = () => {
     setSelectedTopic(option.id as number);
   };
 
+  const handleLanguageChange = (option: DropdownLayoutValueOption) => {
+    setLanguage(String(option.value));
+  };
+
   // VALIDATION
   const isFormValid = () => {
-    return question.trim() !== "" && answer.trim() !== "" && selectedTopic !== undefined;
+    return question.trim() !== "" && answer.trim() !== "" && selectedTopic !== undefined && language !== "";
   };
 
   // HANDLES FOR SAVING & CANCELLING
@@ -79,11 +102,16 @@ const Modal: FC = () => {
 
       const topicValue = topicOptions.find(opt => opt.id === selectedTopic)?.value;
 
+      const newOrder = maxOrder + 1;
+      const langCode = getLangCode(language);
+
       await items.insert("faq", {
         question: question.trim(),
         answer: answer,
         topic: topicValue,
-        order: maxOrder + 1,
+        order: newOrder,
+        language: language,
+        title: `${newOrder}-${langCode}`,
       });
 
       dashboard.showToast({
@@ -158,6 +186,20 @@ const Modal: FC = () => {
                     options={topicOptions}
                     selectedId={selectedTopic}
                     onSelect={handleTopicChange}
+                    popoverProps={{
+                      appendTo: "window",
+                      placement: "top",
+                    }}
+                  />
+                </FormField>
+              </Cell>
+              <Cell span={6}>
+                <FormField label="Language" required>
+                  <Dropdown
+                    placeholder="Select a language"
+                    options={languageOptions}
+                    selectedId={languageOptions.find((opt) => opt.value === language)?.id}
+                    onSelect={handleLanguageChange}
                     popoverProps={{
                       appendTo: "window",
                       placement: "top",

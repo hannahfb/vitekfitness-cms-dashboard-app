@@ -11,8 +11,14 @@ export interface TextItem {
   content: string;
   primaryButton: string;
   contentTextColour: string;
-  image: string | null;
+  imageRef: string | null;
   imageAltText: string;
+  language: string;
+}
+
+export interface ImageItem {
+  id: string;
+  image: string;
 }
 
 export interface PackageItem {
@@ -23,8 +29,6 @@ export interface PackageItem {
   sessionPrice: number;
   sessionQty: number;
   validity: number;
-  description: string;
-  isDescription?: boolean;
 }
 
 export interface PackageRecord {
@@ -43,6 +47,8 @@ export interface FAQItem {
   answer: string;
   topic: string;
   order: number;
+  language: string;
+  title: string;
 }
 
 export interface SortKey {

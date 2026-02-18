@@ -1,5 +1,6 @@
 import React, { type FC, useState, useEffect } from "react";
 import { dashboard } from "@wix/dashboard";
+import { getLangCode } from "../../../utils/content";
 import {
   WixDesignSystemProvider,
   Text,
@@ -58,6 +59,8 @@ const Modal: FC = () => {
             answer: match.answer,
             topic: match.topic,
             order: match.order,
+            language: match.language,
+            title: match.title,
           };
           setFaqData(formatted);
           setContentKey((prev) => prev + 1);
@@ -89,6 +92,17 @@ const Modal: FC = () => {
     setFaqData({ ...faqData, topic: String(option.value) });
   };
 
+  const handleLanguageChange = (option: DropdownLayoutValueOption) => {
+    if (!faqData) return;
+    setFaqData({ ...faqData, language: String(option.value) });
+  };
+
+  // LANGUAGE OPTIONS
+  const languageOptions = [
+    { id: 1, value: "English" },
+    { id: 2, value: "German" },
+  ];
+
   // HANDLES FOR SAVING & CANCELLING
   const handleClickSave = () => {
     setShowConfirmation(true);
@@ -100,11 +114,15 @@ const Modal: FC = () => {
     setIsSaving(true);
 
     try {
+      const langCode = getLangCode(faqData.language);
+
       await items
         .patch("faq", id)
         .setField("question", faqData.question)
         .setField("answer", faqData.answer)
         .setField("topic", faqData.topic)
+        .setField("language", faqData.language)
+        .setField("title", `${faqData.order}-${langCode}`)
         .run();
 
       dashboard.showToast({
@@ -191,6 +209,20 @@ const Modal: FC = () => {
                     options={topicOptions}
                     selectedId={selectedTopic?.id}
                     onSelect={handleTopicChange}
+                    popoverProps={{
+                      appendTo: "window",
+                      placement: "top",
+                    }}
+                  />
+                </FormField>
+              </Cell>
+              <Cell span={6}>
+                <FormField label="Language">
+                  <Dropdown
+                    placeholder="Select a language"
+                    options={languageOptions}
+                    selectedId={languageOptions.find((opt) => opt.value === faqData.language)?.id}
+                    onSelect={handleLanguageChange}
                     popoverProps={{
                       appendTo: "window",
                       placement: "top",

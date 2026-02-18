@@ -34,6 +34,7 @@ import {
   FilterOption,
   ModalResult,
   TextItem,
+  ImageItem,
   SaveModalResponse,
   ImageModalResponse,
 } from "../types";
@@ -48,34 +49,66 @@ import {
 interface PackagesEditorProps {
   packagesData: PackageItem[];
   textData: TextItem[];
+  imageData: ImageItem[];
+  selectedLang: string;
   onDataChange: () => Promise<void>;
 }
 
 const PackagesEditor: FC<PackagesEditorProps> = ({
   packagesData,
   textData,
+  imageData,
+  selectedLang,
   onDataChange,
 }) => {
   const [sortedPackData, setSortedPackData] = useState<PackageItem[]>([
     ...packagesData,
   ]);
   const [pricingContentData, setPricingContentData] = useState<TextItem[]>([]);
-  const [descriptions, setDescriptions] = useState<PackageItem[]>([]);
+  const [descriptions, setDescriptions] = useState<TextItem[]>([]);
   const typeOrder = ["Quick 40", "Standard 60", "Extended 75"];
+
+  // RESOLVE IMAGE URL FROM IMAGEREF ID
+  const resolveImageUrl = (imageRef: string | null): string | null => {
+    if (!imageRef) return null;
+    const match = imageData.find((img) => img.id === imageRef);
+    return match?.image || null;
+  };
 
   useEffect(() => {
     setSortedPackData([...packagesData]);
-
-    const filteredDescriptions = packagesData.filter(
-      (item) => item.isDescription,
-    );
-
-    const sortedDescriptions = filteredDescriptions.sort(
-      (a, b) => typeOrder.indexOf(a.type) - typeOrder.indexOf(b.type),
-    );
-
-    setDescriptions(sortedDescriptions);
   }, [packagesData]);
+
+  // DESCRIPTION ROWS FROM TEXT COLLECTION, FILTERED BY LANGUAGE
+  useEffect(() => {
+    const filteredDescriptions = textData
+      .filter((item) => typeOrder.includes(item.section) && item.language === selectedLang)
+      .sort((a, b) => typeOrder.indexOf(a.section) - typeOrder.indexOf(b.section));
+
+    setDescriptions(filteredDescriptions);
+  }, [textData, selectedLang]);
+
+  // SWAP CONTENT TO EQUIVALENT ITEM WHEN LANGUAGE CHANGES
+  useEffect(() => {
+    if (selectedContent.id === 0 || !content.id) return;
+
+    const item = textData.find(
+      (item) => item.section === content.section && item.language === selectedLang,
+    );
+
+    if (item) {
+      setContent({
+        id: item.id,
+        title: item.title,
+        header: item.header,
+        content: item.content,
+        section: item.section,
+        imageRef: item.imageRef || null,
+        imageAltText: item.imageAltText || "",
+      });
+      setContentKey((prev) => prev + 1);
+    }
+  }, [selectedLang]);
 
   // PACKAGE DESCRIPTIONS
   // MODAL FUNCTION TO EDIT DESCRIPTIONS
@@ -105,22 +138,34 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
     { id: 0, value: "Descriptions", type: "content" },
     { id: 1, value: "Intro Text", type: "content" },
     { id: 2, value: "Intro Banner", type: "content" },
-    { id: 3, value: "Dance Discount Banner", type: "content" },
-    { id: 4, value: "App", type: "content" },
-    { id: 5, value: "Trial", type: "content" },
-    { id: 6, value: "Consult", type: "content" },
-    { id: 7, value: "Form", type: "content" },
+    { id: 3, value: "5 Sessions", type: "content" },
+    { id: 4, value: "10 Sessions", type: "content" },
+    { id: 5, value: "20 Sessions", type: "content" },
+    { id: 6, value: "Nutritional Coaching", type: "content" },
+    { id: 7, value: "Nutritional Consultation", type: "content" },
+    { id: 8, value: "Meal Plan", type: "content" },
+    { id: 9, value: "Dance Discount Banner", type: "content" },
+    { id: 10, value: "App", type: "content" },
+    { id: 11, value: "Trial", type: "content" },
+    { id: 12, value: "Consult", type: "content" },
+    { id: 13, value: "Form", type: "content" },
   ];
 
   // CONTENT SORTING
   const sectionMapping: Record<number, string> = {
     1: "Features",
     2: "Intro Banner",
-    3: "Dance",
-    4: "App",
-    5: "Trial",
-    6: "Consult",
-    7: "Form",
+    3: "5 Sessions",
+    4: "10 Sessions",
+    5: "20 Sessions",
+    6: "Nutritional Coaching",
+    7: "Nutrition",
+    8: "Meal Plan",
+    9: "Dance",
+    10: "App",
+    11: "Trial",
+    12: "Consult",
+    13: "Form",
   };
 
   const handleContentSelect = (option: DropdownLayoutValueOption) => {
@@ -130,7 +175,7 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
     if (option.id === 0) return;
 
     const sectionName = sectionMapping[option.id as number];
-    const item = textData.find((item) => item.section === sectionName);
+    const item = textData.find((item) => item.section === sectionName && item.language === selectedLang);
 
     if (item) {
       setContent({
@@ -139,7 +184,7 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
         header: item.header,
         content: item.content,
         section: item.section,
-        image: item.image || null,
+        imageRef: item.imageRef || null,
         imageAltText: item.imageAltText || "",
       });
     }
@@ -180,7 +225,7 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
     header: "",
     content: "",
     section: "",
-    image: null as string | null,
+    imageRef: null as string | null,
     imageAltText: "",
   });
   const [contentKey, setContentKey] = useState(0);
@@ -189,9 +234,11 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
     return textData.find((item) => item.id === content.id);
   }, [textData, content.id]);
 
+  const resolvedImageUrl = resolveImageUrl(content.imageRef);
+
   const imageDimensions = useMemo(
-    () => getImageDimensions(content.image),
-    [content.image]
+    () => getImageDimensions(resolvedImageUrl),
+    [resolvedImageUrl]
   );
 
   const handleContentChange = (
@@ -233,7 +280,7 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
         header: originalItem.header,
         content: originalItem.content,
         section: originalItem.section,
-        image: originalItem.image || null,
+        imageRef: originalItem.imageRef || null,
         imageAltText: originalItem.imageAltText || "",
       });
       setContentKey((prev) => prev + 1);
@@ -262,7 +309,7 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
   };
 
   const handleUpdateImage = async () => {
-    let currentImage = content.image;
+    let currentImage = resolveImageUrl(content.imageRef);
     let currentAltText = content.imageAltText;
 
     while (true) {
@@ -283,7 +330,7 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
         | ImageModalResponse
         | undefined;
 
-      // Opens Wix Media Manager modal
+      // OPENS WIX MEDIA MANAGER MODAL
       if (modalData?.action === "openMediaManager") {
         try {
           const mediaResult = await dashboard.openMediaManager({
@@ -312,55 +359,42 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
       if (modalData?.saved) {
         const newImageUrl = modalData?.newImageUrl;
         const newAltText = modalData?.altText;
+        const currentResolvedImage = resolveImageUrl(content.imageRef);
+        const imageChanged = newImageUrl && newImageUrl !== currentResolvedImage;
+        const altTextChanged = newAltText !== content.imageAltText;
 
-        if (
-          newImageUrl &&
-          (newImageUrl !== content.image || newAltText !== content.imageAltText)
-        ) {
-          try {
+        try {
+          // IMAGE URL CHANGED — PATCH IMAGES COLLECTION
+          if (imageChanged && content.imageRef) {
             await items
-              .patch("text", content.id)
+              .patch("images", content.imageRef)
               .setField("image", newImageUrl)
-              .setField("imageAltText", newAltText)
               .run();
-
-            setContent((prev) => ({
-              ...prev,
-              image: newImageUrl,
-              imageAltText: newAltText ?? "",
-            }));
-
-            dashboard.showToast({
-              message: "Image updated successfully",
-              type: "success",
-            });
-          } catch (error) {
-            console.error("Error updating image:", error);
-            dashboard.showToast({
-              message: "Failed to update image",
-              type: "error",
-            });
           }
-        } else if (newAltText !== content.imageAltText) {
-          try {
+
+          // ALT TEXT CHANGED — PATCH TEXT COLLECTION
+          if (altTextChanged) {
             await items
               .patch("text", content.id)
               .setField("imageAltText", newAltText)
               .run();
 
             setContent((prev) => ({ ...prev, imageAltText: newAltText ?? "" }));
+          }
 
+          if (imageChanged || altTextChanged) {
+            await onDataChange();
             dashboard.showToast({
-              message: "Alt text updated successfully",
+              message: "Image updated successfully",
               type: "success",
             });
-          } catch (error) {
-            console.error("Error updating alt text:", error);
-            dashboard.showToast({
-              message: "Failed to update alt text",
-              type: "error",
-            });
           }
+        } catch (error) {
+          console.error("Error updating image:", error);
+          dashboard.showToast({
+            message: "Failed to update image",
+            type: "error",
+          });
         }
       }
 
@@ -406,7 +440,6 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
         switch (option.type) {
           case "type":
             if (option.value === "All Types") {
-              // console.log(option);
               return (
                 selectedSession.id === 0 ||
                 item.sessionQty === selectedSession.qty
@@ -421,7 +454,6 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
 
           case "session":
             if (option.value === "All Sessions") {
-              // console.log(option);
               return selectedType.id === 0 || item.type === selectedType.value;
             } else {
               return (
@@ -654,7 +686,7 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
 
   return (
     <Layout>
-      <Cell span={selectedContent.id !== 0 && originalItem?.image ? 8 : 12}>
+      <Cell span={selectedContent.id !== 0 && resolvedImageUrl ? 8 : 12}>
         <Card>
           <TableToolbar>
             <TableToolbar.ItemGroup>
@@ -685,16 +717,21 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
                   <Cell key={desc?.id || index} span={4}>
                     <Box direction="horizontal" gap="SP" verticalAlign="top">
                       <Box direction="vertical" gap="SP1" flexGrow={1}>
-                        <Heading size="small">{desc?.type}</Heading>
+                        <Heading size="small">{desc?.section}</Heading>
+                        {desc?.header && (
+                          <Text size="small" weight="bold">
+                            {desc.header}
+                          </Text>
+                        )}
                         <Text size="small">
-                          {reformatHtmlTags(desc?.description || "")}
+                          {reformatHtmlTags(desc?.content || "")}
                         </Text>
                       </Box>
                       <Tooltip content="Edit description">
                         <IconButton
                           priority="secondary"
                           onClick={() =>
-                            handleEditDescription(desc?.id, desc?.type)
+                            handleEditDescription(desc?.id, desc?.section)
                           }
                         >
                           <EditIcon />
@@ -766,7 +803,7 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
           </Card.Content>
         </Card>
       </Cell>
-      {selectedContent.id !== 0 && originalItem?.image && (
+      {selectedContent.id !== 0 && resolvedImageUrl && (
         <Cell span={4}>
           <Card stretchVertically={true}>
             <Card.Header title="Image" />
@@ -778,7 +815,7 @@ const PackagesEditor: FC<PackagesEditorProps> = ({
                   <FormField>
                     <Box align="center">
                       <ImageViewer
-                        imageUrl={convertWixImageUrl(content.image) || ""}
+                        imageUrl={convertWixImageUrl(resolvedImageUrl) || ""}
                         height="80%"
                         width="80%"
                         showRemoveButton={false}

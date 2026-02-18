@@ -24,14 +24,15 @@ import "@wix/design-system/styles.global.css";
 import * as Icons from "@wix/wix-ui-icons-common";
 import { items } from "@wix/data";
 import { FAQItem, ModalResult, FilterTag } from "../types";
-import { reformatHtmlTags } from "../utils/content";
+import { reformatHtmlTags, getLangCode } from "../utils/content";
 
 interface FAQEditorProps {
   faqData: FAQItem[];
   onDataChange: () => Promise<void>;
+  selectedLang: string;
 }
 
-const FAQEditor: FC<FAQEditorProps> = ({ faqData, onDataChange }) => {
+const FAQEditor: FC<FAQEditorProps> = ({ faqData, onDataChange, selectedLang }) => {
   const [sortedFAQData, setSortedFAQData] = useState<FAQItem[]>([]);
 
   const [subtoolbarVisible, setSubtoolbarVisible] = useState(false);
@@ -70,11 +71,13 @@ const FAQEditor: FC<FAQEditorProps> = ({ faqData, onDataChange }) => {
       setTopicOptions(options);
       applyFilters("All Topics", searchQuery);
     }
-  }, [faqData]);
+  }, [faqData, selectedLang]);
 
   // FILTERING & SEARCHING
   const applyFilters = (topic: string, search: string) => {
-    let data = [...faqData].sort((a, b) => a.order - b.order);
+    let data = [...faqData]
+      .filter((item) => item.language === selectedLang)
+      .sort((a, b) => a.order - b.order);
 
     if (topic !== "All Topics") {
       data = data.filter((item) => item.topic === topic);
@@ -122,9 +125,9 @@ const FAQEditor: FC<FAQEditorProps> = ({ faqData, onDataChange }) => {
 
   const removeTag = () => {
     setFilter([]);
-    setSortedFAQData(faqData);
     setSelectedTopic(topicOptions[0] ?? { id: 0, value: "All Topics" });
     setSubtoolbarVisible(false);
+    applyFilters("All Topics", searchQuery);
   };
 
   const clearAllFilters = () => {
@@ -173,9 +176,10 @@ const FAQEditor: FC<FAQEditorProps> = ({ faqData, onDataChange }) => {
 
   const handleAdd = async () => {
     try {
-      const result = await dashboard.openModal(
-        "c5153ad5-18b0-4d22-a88c-542405a59b99"
-      );
+      const result = await dashboard.openModal({
+        modalId: "c5153ad5-18b0-4d22-a88c-542405a59b99",
+        params: { language: selectedLang },
+      });
 
       const modalResult = (await result?.modalClosed) as ModalResult;
 
@@ -226,10 +230,12 @@ const FAQEditor: FC<FAQEditorProps> = ({ faqData, onDataChange }) => {
         await items
           .patch("faq", item.id)
           .setField("order", aboveItem.order)
+          .setField("title", `${aboveItem.order}-${getLangCode(item.language)}`)
           .run();
         await items
           .patch("faq", aboveItem.id)
           .setField("order", item.order)
+          .setField("title", `${item.order}-${getLangCode(aboveItem.language)}`)
           .run();
 
         await onDataChange();
@@ -258,10 +264,12 @@ const FAQEditor: FC<FAQEditorProps> = ({ faqData, onDataChange }) => {
         await items
           .patch("faq", item.id)
           .setField("order", belowItem.order)
+          .setField("title", `${belowItem.order}-${getLangCode(item.language)}`)
           .run();
         await items
           .patch("faq", belowItem.id)
           .setField("order", item.order)
+          .setField("title", `${item.order}-${getLangCode(belowItem.language)}`)
           .run();
 
         await onDataChange();

@@ -18,14 +18,17 @@ import {
 import { dashboard } from "@wix/dashboard";
 import "@wix/design-system/styles.global.css";
 import { items } from "@wix/data";
-import { TextItem, SectionOption, ImageModalResponse, SaveModalResponse } from "../types";
+import { TextItem, ImageItem, SectionOption, ImageModalResponse, SaveModalResponse } from "../types";
 import { convertWixImageUrl, getImageDimensions } from "../utils/content";
 
 interface TextContentEditorProps {
   textData: TextItem[];
+  imageData: ImageItem[];
+  selectedLang: string;
+  onDataChange: () => Promise<void>;
 }
 
-const TextContentEditor: FC<TextContentEditorProps> = ({ textData }) => {
+const TextContentEditor: FC<TextContentEditorProps> = ({ textData, imageData, selectedLang, onDataChange }) => {
   const [sectionData, setSectionData] = useState<TextItem[]>([]);
 
   const [sectionOptions, setSectionOptions] = useState<SectionOption[]>([]);
@@ -45,7 +48,7 @@ const TextContentEditor: FC<TextContentEditorProps> = ({ textData }) => {
     section: "",
     page: "",
     primaryButton: "",
-    image: null as TextItem["image"],
+    imageRef: null as TextItem["imageRef"],
     imageAltText: "",
   });
   const [cardContent, setCardContent] = useState<TextItem[]>([]);
@@ -60,15 +63,24 @@ const TextContentEditor: FC<TextContentEditorProps> = ({ textData }) => {
     height: 0,
   });
 
+  // RESOLVE IMAGEREF TO ACTUAL IMAGE URL FROM IMAGES COLLECTION
+  const resolveImageUrl = (imageRef: string | null): string | null => {
+    if (!imageRef) return null;
+    const match = imageData.find((img) => img.id === imageRef);
+    return match?.image || null;
+  };
+
   useEffect(() => {
     if (!textData.length) return;
 
+    const langData = textData.filter((item) => item.language === selectedLang);
+
     const uniqueSections = Array.from(
-      new Set(textData.map((item) => item.section)),
+      new Set(langData.map((item) => item.section)),
     );
 
     const sectionList = uniqueSections.map((section, index) => {
-      const count = textData.filter((item) => item.section === section).length;
+      const count = langData.filter((item) => item.section === section).length;
       return {
         id: index + 1,
         value: section,
@@ -77,16 +89,50 @@ const TextContentEditor: FC<TextContentEditorProps> = ({ textData }) => {
     });
 
     setSectionOptions(sectionList);
-  }, [textData]);
+
+    if (selectedSection) {
+      const updated = sectionList.find((s) => s.value === selectedSection.value);
+      if (updated) setSelectedSection(updated);
+    }
+  }, [textData, selectedLang]);
 
   useEffect(() => {
-    if (content.image) {
-      const dimensions = getImageDimensions(content.image);
+    const imageUrl = resolveImageUrl(content.imageRef);
+    if (imageUrl) {
+      const dimensions = getImageDimensions(imageUrl);
       setImageDimensions(dimensions);
     } else {
       setImageDimensions({ width: 0, height: 0 });
     }
-  }, [content.image]);
+  }, [content.imageRef, imageData]);
+
+  // LANGUAGE SWITCH — swap to equivalent item in new language
+  useEffect(() => {
+    if (!selectedSection || !content.id) return;
+
+    const filteredSectionData = textData.filter(
+      (item) => item.section === selectedSection.value && item.language === selectedLang,
+    );
+    setSectionData(filteredSectionData);
+
+    let selectedItem;
+
+    if (checkedId === 2) {
+      const currentItem = textData.find((item) => item.id === content.id);
+      const cardItems = filteredSectionData
+        .filter((item) => item.subtype === "Card")
+        .sort((a, b) => a.cardOrder - b.cardOrder);
+      setCardContent(cardItems);
+      selectedItem = cardItems.find((card) => card.cardOrder === currentItem?.cardOrder) || cardItems[0];
+    } else {
+      selectedItem = filteredSectionData.find((item) => item.subtype === "Standard") || filteredSectionData[0];
+    }
+
+    if (selectedItem) {
+      fillInputDisplay(selectedItem);
+      setContentKey((prev) => prev + 1);
+    }
+  }, [selectedLang]);
 
   // SECTION SELECTORS & CLEARERS
   const handleSelectSection = (option: SectionOption) => {
@@ -94,7 +140,7 @@ const TextContentEditor: FC<TextContentEditorProps> = ({ textData }) => {
     setCheckedId(1);
 
     const filteredSectionData = textData.filter(
-      (item) => item.section === option.value,
+      (item) => item.section === option.value && item.language === selectedLang,
     );
     setSectionData(filteredSectionData);
 
@@ -159,14 +205,14 @@ const TextContentEditor: FC<TextContentEditorProps> = ({ textData }) => {
       section: item.section,
       page: item.page,
       primaryButton: item.primaryButton,
-      image: item.image,
+      imageRef: item.imageRef,
       imageAltText: item.imageAltText,
     });
   }
 
     // OPEN IMAGE UPDATE MODAL
   const handleUpdateImage = async () => {
-    let currentImage = content.image;
+    let currentImage = resolveImageUrl(content.imageRef);
     let currentAltText = content.imageAltText;
 
     while (true) {
@@ -214,55 +260,42 @@ const TextContentEditor: FC<TextContentEditorProps> = ({ textData }) => {
       if (modalData?.saved) {
         const newImageUrl = modalData?.newImageUrl;
         const newAltText = modalData?.altText;
+        const currentResolvedImage = resolveImageUrl(content.imageRef);
+        const imageChanged = newImageUrl && newImageUrl !== currentResolvedImage;
+        const altTextChanged = newAltText !== content.imageAltText;
 
-        if (
-          newImageUrl &&
-          (newImageUrl !== content.image || newAltText !== content.imageAltText)
-        ) {
-          try {
+        try {
+          // IMAGE URL CHANGED — PATCH IMAGES COLLECTION
+          if (imageChanged && content.imageRef) {
             await items
-              .patch("text", content.id)
+              .patch("images", content.imageRef)
               .setField("image", newImageUrl)
-              .setField("imageAltText", newAltText)
               .run();
-
-            setContent((prev) => ({
-              ...prev,
-              image: newImageUrl,
-              imageAltText: newAltText ?? "",
-            }));
-
-            dashboard.showToast({
-              message: "Image updated successfully",
-              type: "success",
-            });
-          } catch (error) {
-            console.error("Error updating image:", error);
-            dashboard.showToast({
-              message: "Failed to update image",
-              type: "error",
-            });
           }
-        } else if (newAltText !== content.imageAltText) {
-          try {
+
+          // ALT TEXT CHANGED — PATCH TEXT COLLECTION
+          if (altTextChanged) {
             await items
               .patch("text", content.id)
               .setField("imageAltText", newAltText)
               .run();
 
             setContent((prev) => ({ ...prev, imageAltText: newAltText ?? "" }));
+          }
 
+          if (imageChanged || altTextChanged) {
+            await onDataChange();
             dashboard.showToast({
-              message: "Alt text updated successfully",
+              message: "Image updated successfully",
               type: "success",
             });
-          } catch (error) {
-            console.error("Error updating alt text:", error);
-            dashboard.showToast({
-              message: "Failed to update alt text",
-              type: "error",
-            });
           }
+        } catch (error) {
+          console.error("Error updating image:", error);
+          dashboard.showToast({
+            message: "Failed to update image",
+            type: "error",
+          });
         }
       }
 
@@ -406,7 +439,7 @@ const TextContentEditor: FC<TextContentEditorProps> = ({ textData }) => {
           </Card>
         </Cell>
       )}
-      <Cell span={originalItem?.image ? 8 : 12}>
+      <Cell span={originalItem?.imageRef ? 8 : 12}>
         <Card>
           <Card.Header title="Content"></Card.Header>
           <Card.Divider />
@@ -492,7 +525,7 @@ const TextContentEditor: FC<TextContentEditorProps> = ({ textData }) => {
           </Card.Content>
         </Card>
       </Cell>
-      {originalItem?.image && (
+      {originalItem?.imageRef && (
         <Cell span={4}>
           <Card stretchVertically={true}>
             <Card.Header title="Image" />
@@ -504,7 +537,7 @@ const TextContentEditor: FC<TextContentEditorProps> = ({ textData }) => {
                   <Cell span={4}>
                     <FormField>
                       <ImageViewer
-                        imageUrl={convertWixImageUrl(content.image) || ""}
+                        imageUrl={convertWixImageUrl(resolveImageUrl(content.imageRef)) || ""}
                         height="100%"
                         width="100%"
                         showRemoveButton={false}
@@ -514,8 +547,8 @@ const TextContentEditor: FC<TextContentEditorProps> = ({ textData }) => {
                   </Cell>
                   <Tooltip content="Please only upload images with the same dimensions.">
                     <Text size="small">
-                      Dimensions: {getImageDimensions(content.image).width}x
-                      {getImageDimensions(content.image).height} px
+                      Dimensions: {getImageDimensions(resolveImageUrl(content.imageRef)).width}x
+                      {getImageDimensions(resolveImageUrl(content.imageRef)).height} px
                     </Text>
                   </Tooltip>
                 </Cell>

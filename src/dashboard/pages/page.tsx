@@ -1,12 +1,20 @@
 import React, { type FC, useEffect, useState } from "react";
-import { Page, WixDesignSystemProvider, Tabs } from "@wix/design-system";
+import {
+  Page,
+  WixDesignSystemProvider,
+  Tabs,
+  PopoverMenu,
+  Button,
+  Box,
+} from "@wix/design-system";
 import "@wix/design-system/styles.global.css";
 import { items } from "@wix/data";
-import { TextItem, PackageItem, FAQItem } from "../../types";
+import { TextItem, PackageItem, FAQItem, ImageItem } from "../../types";
 import PackagesEditor from "../../components/PackagesEditor";
 import TextContentEditor from "../../components/TextContentEditor";
 import LegalEditor from "../../components/LegalEditor";
 import FAQEditor from "../../components/FAQEditor";
+import * as Icons from "@wix/wix-ui-icons-common";
 
 const TabItems: { id: number; title: string }[] = [
   { id: 1, title: "Home" },
@@ -21,31 +29,45 @@ const Index: FC = () => {
   const [textData, setTextData] = useState<TextItem[]>([]);
   const [packagesData, setPackagesData] = useState<PackageItem[]>([]);
   const [faqData, setFaqData] = useState<FAQItem[]>([]);
+  const [imageData, setImageData] = useState<ImageItem[]>([]);
+  const [selectedLang, setSelectedLang] = useState("English");
 
   useEffect(() => {
     let isMounted = true;
 
     const getTabData = async () => {
       try {
-        if (activeTabId === 1 || activeTabId === 2 || activeTabId === 4) {
+        if (activeTabId === 1 || activeTabId === 2) {
+          const [textResult, imageResult] = await Promise.all([
+            fetchCollection<any, TextItem>("text", mapText),
+            fetchCollection<any, ImageItem>("images", mapImage),
+          ]);
+          const pages = { 1: "Home", 2: "About me" };
+          const pageData = textResult.filter(
+            (item) => item.page === pages[activeTabId],
+          );
+          if (isMounted) {
+            setTextData(pageData);
+            setImageData(imageResult);
+          }
+        } else if (activeTabId === 4) {
           const data: TextItem[] = await fetchCollection<any, TextItem>(
             "text",
             mapText,
           );
-          const pages = { 1: "Home", 2: "About me", 4: "Legal" };
-          const pageData = data.filter(
-            (item) => item.page === pages[activeTabId],
-          );
+          const pageData = data.filter((item) => item.page === "Legal");
           if (isMounted) setTextData(pageData);
         } else if (activeTabId === 3) {
-          const [packagesResult, textResult] = await Promise.all([
+          const [packagesResult, textResult, imageResult] = await Promise.all([
             fetchCollection<any, PackageItem>("packages", mapPackages),
             fetchCollection<any, TextItem>("text", mapText),
+            fetchCollection<any, ImageItem>("images", mapImage),
           ]);
           const pageData = textResult.filter((item) => item.page === "Pricing");
           if (isMounted) {
             setPackagesData(packagesResult);
             setTextData(pageData);
+            setImageData(imageResult);
           }
         } else if (activeTabId === 5) {
           const data: FAQItem[] = await fetchCollection<any, FAQItem>(
@@ -70,7 +92,7 @@ const Index: FC = () => {
     collectionName: string,
     mapFn: (item: RawItem) => MappedItem,
   ): Promise<MappedItem[]> {
-    const results = await items.query(collectionName).find();
+    const results = await items.query(collectionName).limit(1000).find();
 
     if (results.items.length > 0) {
       return results.items.map((item) => mapFn(item as RawItem));
@@ -93,10 +115,17 @@ const Index: FC = () => {
       cardOrder: item.cardOrder,
       primaryButton: item.primaryButton,
       contentTextColour: item.ContentTextColour,
-      image: item.image || null,
+      imageRef: item.imageRef || null,
       imageAltText: item.imageAltText,
+      language: item.language,
     };
   };
+
+  // IMAGES COLLECTION
+  const mapImage = (item: any): ImageItem => ({
+    id: item._id,
+    image: item.image,
+  });
 
   // PACKAGES & PRICING COLLECTION
   const mapPackages = (item: any): PackageItem => ({
@@ -107,8 +136,6 @@ const Index: FC = () => {
     sessionPrice: item.sessionPrice,
     sessionQty: item.sessionsQty,
     validity: item.validityMonths,
-    description: item.description,
-    isDescription: item.isDescription,
   });
 
   // FAQ COLLECTION
@@ -118,17 +145,34 @@ const Index: FC = () => {
     answer: item.answer,
     topic: item.topic,
     order: item.order,
+    language: item.language,
+    title: item.title,
   });
 
   // TAB REFRESH
   const refreshTabData = async () => {
     try {
-      if (activeTabId === 3) {
-        const data: PackageItem[] = await fetchCollection<any, PackageItem>(
-          "packages",
-          mapPackages,
+      if (activeTabId === 1 || activeTabId === 2) {
+        const [textResult, imageResult] = await Promise.all([
+          fetchCollection<any, TextItem>("text", mapText),
+          fetchCollection<any, ImageItem>("images", mapImage),
+        ]);
+        const pages = { 1: "Home", 2: "About me" };
+        const pageData = textResult.filter(
+          (item) => item.page === pages[activeTabId],
         );
-        setPackagesData(data);
+        setTextData(pageData);
+        setImageData(imageResult);
+      } else if (activeTabId === 3) {
+        const [packagesResult, textResult, imageResult] = await Promise.all([
+          fetchCollection<any, PackageItem>("packages", mapPackages),
+          fetchCollection<any, TextItem>("text", mapText),
+          fetchCollection<any, ImageItem>("images", mapImage),
+        ]);
+        const pageData = textResult.filter((item) => item.page === "Pricing");
+        setPackagesData(packagesResult);
+        setTextData(pageData);
+        setImageData(imageResult);
       } else if (activeTabId === 5) {
         const data: FAQItem[] = await fetchCollection<any, FAQItem>(
           "faq",
@@ -154,18 +198,42 @@ const Index: FC = () => {
             type="compactSide"
             activeId={activeTabId}
             onClick={(tab) => setActiveTabId(tab.id as number)}
+            sideContent={
+              <PopoverMenu
+                triggerElement={
+                  <Button 
+                  skin="inverted" 
+                  suffixIcon={<Icons.ChevronDown />}>
+                    Language: {selectedLang}
+                  </Button>
+                }
+              >
+                <PopoverMenu.MenuItem
+                  text="English"
+                  suffixIcon={selectedLang === "English" ? <Icons.Confirm /> : undefined}
+                  onClick={() => {setSelectedLang("English")}}
+                />
+                <PopoverMenu.MenuItem
+                  text="German"
+                  suffixIcon={selectedLang === "German" ? <Icons.Confirm /> : undefined}
+                  onClick={() => {setSelectedLang("German")}}
+                  
+                />
+              </PopoverMenu>
+            }
           />
         </Page.Tail>
-
         <Page.Content>
           {(activeTabId === 1 || activeTabId === 2) && (
-            <TextContentEditor key={activeTabId} textData={textData} />
+            <TextContentEditor key={activeTabId} textData={textData} imageData={imageData} selectedLang={selectedLang} onDataChange={refreshTabData} />
           )}
 
           {activeTabId === 3 && (
             <PackagesEditor
               packagesData={packagesData}
               textData={textData}
+              imageData={imageData}
+              selectedLang={selectedLang}
               onDataChange={refreshTabData}
             />
           )}
@@ -173,7 +241,7 @@ const Index: FC = () => {
           {activeTabId === 4 && <LegalEditor textData={textData} />}
 
           {activeTabId === 5 && (
-            <FAQEditor faqData={faqData} onDataChange={refreshTabData} />
+            <FAQEditor faqData={faqData} onDataChange={refreshTabData} selectedLang={selectedLang} />
           )}
         </Page.Content>
       </Page>
